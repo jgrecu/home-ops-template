@@ -1,0 +1,11 @@
+age.key
+cluster.yaml
+nodes.yaml
+kubeconfig
+github-deploy.key
+github-deploy.key.pub
+github-push-token.txt
+cloudflare-tunnel.json
+.private/
+.venv/
+__pycache__/

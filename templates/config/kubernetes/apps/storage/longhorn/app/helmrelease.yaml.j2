@@ -1,0 +1,50 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: longhorn
+spec:
+  chart:
+    spec:
+      chart: longhorn
+      version: 1.11.1
+      sourceRef:
+        kind: HelmRepository
+        name: longhorn
+  interval: 1h
+  values:
+    defaultSettings:
+      # Where Longhorn stores replica data on each node's disk
+      defaultDataPath: /var/lib/longhorn
+      # Keep 2 replicas across your 3 nodes — survives 1 node failure
+      defaultReplicaCount: 2
+      # Automatically rebalance replicas when a node comes back online
+      replicaAutoBalance: best-effort
+      # Orphaned data cleanup
+      orphanAutoDeletion: true
+      # S3 backup target — Garage runs at this internal ClusterIP address.
+      # Longhorn will archive volume snapshots to the longhorn-backups bucket.
+      # Leave empty until Garage bootstrap is complete (see storage/garage/ks.yaml).
+      backupTarget: "s3://longhorn-backups@garage/"
+      # Secret in the storage namespace with AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY,
+      # AWS_ENDPOINTS, and AWS_REGION. Created by storage/garage/app/longhorn-backup-secret.sops.yaml.
+      backupTargetCredentialSecret: "longhorn-backup-secret"
+    persistence:
+      # Make Longhorn the default StorageClass for the cluster.
+      # Any PVC without an explicit storageClassName will use Longhorn.
+      defaultClass: true
+      defaultClassReplicaCount: 2
+    ingress:
+      enabled: false
+    longhornUI:
+      # Expose the Longhorn UI via the internal gateway
+      # Access at https://longhorn.${SECRET_DOMAIN}
+    service:
+      ui:
+        type: ClusterIP
+    # Resource limits — conservative for the hardware
+    resources:
+      requests:
+        cpu: 25m
+      limits:
+        memory: 512Mi

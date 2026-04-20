@@ -1,0 +1,137 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app grafana
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: grafana
+  interval: 1h
+  values:
+    admin:
+      existingSecret: grafana-secret
+      userKey: admin-user
+      passwordKey: admin-password
+
+    # Pre-configure Prometheus and Loki as data sources so dashboards
+    # work out of the box without any manual UI configuration.
+    datasources:
+      datasources.yaml:
+        apiVersion: 1
+        datasources:
+          - name: Prometheus
+            type: prometheus
+            url: http://kube-prometheus-stack-prometheus.observability.svc.cluster.local:9090
+            isDefault: true
+            jsonData:
+              timeInterval: 1m
+          - name: Loki
+            type: loki
+            url: http://loki-gateway.observability.svc.cluster.local:80
+            jsonData:
+              maxLines: 1000
+
+    # Useful community dashboards — IDs from grafana.com/dashboards
+    dashboardProviders:
+      dashboardproviders.yaml:
+        apiVersion: 1
+        providers:
+          - name: default
+            orgId: 1
+            folder: ""
+            type: file
+            disableDeletion: false
+            editable: true
+            options:
+              path: /var/lib/grafana/dashboards/default
+
+    dashboards:
+      default:
+        # Kubernetes cluster overview
+        kubernetes-cluster:
+          gnetId: 7249
+          revision: 1
+          datasource: Prometheus
+        # Node resource usage
+        node-exporter:
+          gnetId: 1860
+          revision: 37
+          datasource: Prometheus
+        # Flux CD GitOps overview
+        flux-cluster:
+          url: https://raw.githubusercontent.com/fluxcd/flux2-monitoring-example/main/monitoring/configs/dashboards/cluster.json
+          datasource: Prometheus
+        # Flux control plane metrics
+        flux-control-plane:
+          gnetId: 16714
+          revision: 1
+          datasource: Prometheus
+        # Longhorn storage
+        longhorn:
+          gnetId: 16888
+          revision: 9
+          datasource: Prometheus
+        # Cilium networking
+        cilium-operator:
+          gnetId: 16611
+          revision: 1
+          datasource: Prometheus
+        cilium-agent:
+          gnetId: 16612
+          revision: 1
+          datasource: Prometheus
+        # Cert-Manager
+        cert-manager:
+          gnetId: 11001
+          revision: 1
+          datasource: Prometheus
+        # Kubernetes API server
+        kubernetes-api-server:
+          gnetId: 15761
+          revision: 16
+          datasource: Prometheus
+        # Kubernetes system resources
+        kubernetes-views-global:
+          gnetId: 15757
+          revision: 37
+          datasource: Prometheus
+        kubernetes-views-namespaces:
+          gnetId: 15758
+          revision: 34
+          datasource: Prometheus
+        kubernetes-views-pods:
+          gnetId: 15760
+          revision: 28
+          datasource: Prometheus
+
+    persistence:
+      enabled: true
+      storageClassName: longhorn
+      size: 1Gi
+
+    pod:
+      annotations:
+        secret.reloader.stakater.com/reload: *app
+
+    service:
+      type: ClusterIP
+      port: 80
+
+    ingress:
+      enabled: false
+
+    route:
+      main:
+        enabled: true
+        hostnames: ["grafana.${SECRET_DOMAIN}"]
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+
+    resources:
+      requests:
+        cpu: 15m
+      limits:
+        memory: 256Mi

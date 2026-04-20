@@ -1,0 +1,83 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: s3manager
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: s3manager
+  interval: 1h
+  values:
+    controllers:
+      s3manager:
+        strategy: RollingUpdate
+        containers:
+          app:
+            image:
+              repository: cloudlena/s3manager
+              tag: latest
+            env:
+              ENDPOINT: "garage-s3.storage.svc.cluster.local:3900"
+              USE_SSL: "false"
+              SKIP_SSL_VERIFICATION: "true"
+              ACCESS_KEY_ID:
+                valueFrom:
+                  secretKeyRef:
+                    name: s3manager-secret
+                    key: access-key-id
+              SECRET_ACCESS_KEY:
+                valueFrom:
+                  secretKeyRef:
+                    name: s3manager-secret
+                    key: secret-access-key
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: &port 8080
+                  initialDelaySeconds: 10
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              readiness: *probes
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 10m
+              limits:
+                memory: 128Mi
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+    service:
+      app:
+        ports:
+          http:
+            port: *port
+    route:
+      app:
+        hostnames: ["s3.${SECRET_DOMAIN}"]
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: *port
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: "S3 Manager"
+          gethomepage.dev/group: "Storage"
+          gethomepage.dev/description: "Browse Garage S3 buckets"
+          gethomepage.dev/icon: "minio.png"
+          gethomepage.dev/href: "https://s3.${SECRET_DOMAIN}"

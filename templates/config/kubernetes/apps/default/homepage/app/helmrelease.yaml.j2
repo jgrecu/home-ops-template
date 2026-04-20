@@ -1,0 +1,125 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: homepage
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: homepage
+  interval: 1h
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: Deployment
+              name: homepage
+            patch: |
+              - op: replace
+                path: /spec/template/spec/serviceAccountName
+                value: homepage
+  values:
+    controllers:
+      homepage:
+        strategy: RollingUpdate
+        containers:
+          app:
+            image:
+              repository: ghcr.io/gethomepage/homepage
+              tag: v1.12.3
+            env:
+              # Prevents DNS rebinding attacks — must match your actual hostname
+              HOMEPAGE_ALLOWED_HOSTS: "homepage.${SECRET_DOMAIN}"
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: &port 3000
+                  initialDelaySeconds: 10
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              readiness: *probes
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 10m
+              limits:
+                memory: 256Mi
+    persistence:
+      # Persistent storage for logs and other runtime data
+      # Mount to /data instead of /app/config to avoid conflicts with ConfigMaps
+      config:
+        type: persistentVolumeClaim
+        storageClass: longhorn
+        size: 1Gi
+        accessMode: ReadWriteOnce
+        globalMounts:
+          - path: /data
+
+      # Kubernetes integration config
+      kubernetes-config:
+        type: configMap
+        name: homepage-config
+        globalMounts:
+          - path: /app/config/kubernetes.yaml
+            subPath: kubernetes.yaml
+            readOnly: true
+
+      # Services configuration
+      services-config:
+        type: configMap
+        name: homepage-services
+        globalMounts:
+          - path: /app/config/services.yaml
+            subPath: services.yaml
+            readOnly: true
+
+      # Bookmarks configuration
+      bookmarks-config:
+        type: configMap
+        name: homepage-bookmarks
+        globalMounts:
+          - path: /app/config/bookmarks.yaml
+            subPath: bookmarks.yaml
+            readOnly: true
+
+      # Settings configuration
+      settings-config:
+        type: configMap
+        name: homepage-settings
+        globalMounts:
+          - path: /app/config/settings.yaml
+            subPath: settings.yaml
+            readOnly: true
+
+      # Widgets configuration
+      widgets-config:
+        type: configMap
+        name: homepage-widgets
+        globalMounts:
+          - path: /app/config/widgets.yaml
+            subPath: widgets.yaml
+            readOnly: true
+    service:
+      app:
+        ports:
+          http:
+            port: *port
+    route:
+      app:
+        # Using the internal gateway — Homepage is a private dashboard, not public
+        hostnames: ["homepage.${SECRET_DOMAIN}"]
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: *port

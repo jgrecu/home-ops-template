@@ -1,0 +1,104 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: sonarr
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: sonarr
+  interval: 1h
+  values:
+    controllers:
+      sonarr:
+        # Must be on the same node as Transmission — they share the media-downloads
+        # ReadWriteOnce PVC. Label your node: kubectl label node <name> media-node=true
+        pod:
+          nodeSelector:
+            media-node: "true"
+        containers:
+          app:
+            image:
+              repository: lscr.io/linuxserver/sonarr
+              # renovate: datasource=docker depName=lscr.io/linuxserver/sonarr
+              tag: 4.0.17
+            env:
+              TZ: "Europe/Madrid"
+              # LinuxServer: drop to this UID/GID after s6-overlay init
+              PUID: "1000"
+              PGID: "1000"
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /ping
+                    port: &port 8989
+                  initialDelaySeconds: 30
+                  periodSeconds: 30
+              readiness: *probes
+            # LinuxServer images use s6-overlay which starts as root and drops
+            # to PUID/PGID. Do not drop all capabilities or the init will fail.
+            securityContext:
+              allowPrivilegeEscalation: false
+            resources:
+              requests:
+                cpu: 10m
+              limits:
+                memory: 512Mi
+
+    persistence:
+      config:
+        type: persistentVolumeClaim
+        storageClass: longhorn
+        size: 2Gi
+        accessMode: ReadWriteOnce
+        globalMounts:
+          - path: /config
+
+      # Shared download staging area — same PVC as Transmission. Sonarr monitors
+      # /downloads for completed files and imports them to /media/tv.
+      # Since downloads (Longhorn) and media (NFS) are different filesystems,
+      # Sonarr will copy-then-delete rather than hardlink on import. This is
+      # expected behavior — set "Copy" (not "Move") in Sonarr's import settings.
+      downloads:
+        type: persistentVolumeClaim
+        existingClaim: media-downloads
+        globalMounts:
+          - path: /downloads
+
+      # NFS media library — Sonarr imports finished episodes here.
+      # Root folder in Sonarr UI should be set to /media/Series
+      # Uses shared static PV pointing to /videos on NAS
+      media:
+        type: persistentVolumeClaim
+        existingClaim: media-library
+        globalMounts:
+          - path: /media
+
+    service:
+      app:
+        ports:
+          http:
+            port: *port
+
+    route:
+      app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: Downloads
+          gethomepage.dev/name: Sonarr
+          gethomepage.dev/icon: sonarr.png
+          gethomepage.dev/description: TV series collection manager
+          gethomepage.dev/href: https://sonarr.${SECRET_DOMAIN}
+        hostnames: ["sonarr.${SECRET_DOMAIN}"]
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: *port
+    # Internal only — accessible via ClusterIP from Jackett, Transmission, Jellyseerr

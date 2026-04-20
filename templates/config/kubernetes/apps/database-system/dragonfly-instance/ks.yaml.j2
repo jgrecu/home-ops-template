@@ -1,0 +1,20 @@
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: dragonfly-instance
+spec:
+  dependsOn:
+    - name: dragonfly-operator
+      namespace: database-system
+    - name: longhorn
+      namespace: storage
+  interval: 1h
+  path: ./kubernetes/apps/database-system/dragonfly-instance/app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: database-system
+  wait: true

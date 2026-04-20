@@ -1,0 +1,64 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kube-prometheus-stack
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: kube-prometheus-stack
+  interval: 1h
+  values:
+    crds:
+      enabled: true
+
+    # Grafana is deployed separately so we have full control over its config.
+    # Disable it here to avoid running two Grafana instances.
+    grafana:
+      enabled: false
+
+    alertmanager:
+      alertmanagerSpec:
+        storage:
+          volumeClaimTemplate:
+            spec:
+              storageClassName: longhorn
+              accessModes: [ReadWriteOnce]
+              resources:
+                requests:
+                  storage: 1Gi
+
+    prometheus:
+      prometheusSpec:
+        # Keep 14 days of metrics on disk — adjust if your SSDs fill up
+        retention: 14d
+        retentionSize: 15GB
+        storageSpec:
+          volumeClaimTemplate:
+            spec:
+              storageClassName: longhorn
+              accessModes: [ReadWriteOnce]
+              resources:
+                requests:
+                  storage: 20Gi
+        # Pick up ALL ServiceMonitors and PodMonitors in the cluster,
+        # not just the ones created by this chart. This lets every app
+        # add its own monitoring without changing the Prometheus config.
+        serviceMonitorSelectorNilUsesHelmValues: false
+        podMonitorSelectorNilUsesHelmValues: false
+        ruleSelectorNilUsesHelmValues: false
+        resources:
+          requests:
+            cpu: 100m
+          limits:
+            memory: 2Gi
+
+    # node-exporter runs as a DaemonSet on every node and exposes hardware
+    # metrics: CPU, memory, disk I/O, network, filesystem usage.
+    nodeExporter:
+      enabled: true
+
+    # kube-state-metrics exposes Kubernetes object metrics: pod status,
+    # deployment replicas, PVC capacity, node conditions, etc.
+    kubeStateMetrics:
+      enabled: true

@@ -1,0 +1,15 @@
+---
+# PVC for nextcloud data (user files)
+# Binds to static PV pointing to /nextcloud on NAS
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nextcloud-nfs-data
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  volumeName: nfs-nextcloud-data
+  resources:
+    requests:
+      storage: 1Ti

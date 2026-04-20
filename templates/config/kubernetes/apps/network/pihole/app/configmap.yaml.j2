@@ -1,0 +1,10 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pihole-dnsmasq-config
+data:
+  02-conditional-forward.conf: |
+    # Conditional forwarding for cluster domain
+    # Forward *.jgrecu.dev queries to k8s_gateway
+    server=/${SECRET_DOMAIN}/#{ cluster_dns_gateway_addr }#

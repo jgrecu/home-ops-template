@@ -1,0 +1,21 @@
+---
+# Shared downloads volume — mounted by Transmission (write) and Radarr/Sonarr
+# (read/write for import). All three must run on the same node because Longhorn
+# PVCs are ReadWriteOnce. Label your chosen node before deploying:
+#   kubectl label node <node-name> media-node=true
+#
+# Size: 20Gi for download buffer. Files are deleted after Radarr/Sonarr import
+# them to NFS. Single replica to save space on RPi nodes.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: media-downloads
+  annotations:
+    # Use only 1 replica to save space on small RPi storage
+    longhorn.io/numberOfReplicas: "1"
+spec:
+  storageClassName: longhorn
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 100Gi

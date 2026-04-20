@@ -1,0 +1,51 @@
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: garage
+spec:
+  dependsOn:
+    - name: longhorn
+    - name: csi-driver-nfs
+  interval: 1h
+  path: ./kubernetes/apps/storage/garage/app
+  postBuild:
+    substituteFrom:
+      - name: cluster-secrets
+        kind: Secret
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: storage
+  # wait: true — Longhorn and CNPG backups depend on Garage being ready.
+  #
+  # TWO-STEP BOOTSTRAP (similar to Forgejo runner):
+  # Garage S3 access keys only exist after the cluster is initialised.
+  #
+  # Step 1 — first deploy (garage_s3_access_key_id / secret are empty):
+  #   task template:render && git commit && git push
+  #   Wait for Garage pod to come up.
+  #
+  # Step 2 — initialise the cluster and create keys:
+  #   kubectl exec -it -n storage garage-0 -- /bin/sh
+  #
+  #   garage status                          # copy the NODE_ID shown
+  #   garage layout assign -z dc1 -c 100G <NODE_ID>
+  #   garage layout apply --version 1
+  #
+  #   garage bucket create longhorn-backups
+  #   garage bucket create cnpg-backups
+  #
+  #   garage key create home-lab
+  #   garage key info home-lab               # copy Key ID and Secret key
+  #
+  #   garage bucket allow --read --write --owner longhorn-backups --key home-lab
+  #   garage bucket allow --read --write --owner cnpg-backups --key home-lab
+  #
+  # Step 3 — store the credentials:
+  #   Fill garage_s3_access_key_id and garage_s3_secret_access_key in cluster.yaml
+  #   task template:render && git commit && git push
+  #   Flux reconciles — Longhorn and CNPG backup secrets are updated automatically.
+  wait: true

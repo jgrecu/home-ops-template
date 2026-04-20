@@ -1,0 +1,17 @@
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: dragonfly-operator
+spec:
+  interval: 1h
+  path: ./kubernetes/apps/database-system/dragonfly/app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: database-system
+  # wait: true so any app with dependsOn: dragonfly-operator won't start
+  # until the operator and its CRDs are fully installed
+  wait: true

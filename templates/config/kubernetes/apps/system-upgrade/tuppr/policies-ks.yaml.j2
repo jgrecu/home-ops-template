@@ -1,0 +1,19 @@
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: tuppr-policies
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./kubernetes/apps/system-upgrade/tuppr/policies
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: system-upgrade
+  wait: true
+  dependsOn:
+    - name: tuppr
+      namespace: system-upgrade

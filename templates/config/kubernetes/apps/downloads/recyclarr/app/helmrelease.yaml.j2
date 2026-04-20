@@ -1,0 +1,75 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: recyclarr
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: recyclarr
+  interval: 1h
+  values:
+    controllers:
+      recyclarr:
+        # Recyclarr is a sync tool — no persistent service, just a CronJob
+        # that pushes quality profiles and custom formats to Radarr and Sonarr.
+        type: cronjob
+        cronjob:
+          # Run every 6 hours. Recyclarr is idempotent — safe to run often.
+          schedule: "0 */6 * * *"
+          concurrencyPolicy: Forbid
+          failedJobsHistory: 3
+          successfulJobsHistory: 1
+        containers:
+          app:
+            image:
+              repository: ghcr.io/recyclarr/recyclarr
+              # renovate: datasource=docker depName=ghcr.io/recyclarr/recyclarr
+              tag: 8.5.1
+            args: ["sync"]
+            env:
+              TZ: "Europe/Madrid"
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities: { drop: ["ALL"] }
+              runAsUser: 1000
+              runAsGroup: 1000
+            resources:
+              requests:
+                cpu: 10m
+              limits:
+                memory: 128Mi
+        pod:
+          securityContext:
+            fsGroup: 1000
+
+    persistence:
+      # Recyclarr stores its config and cache here. The recyclarr.yml is
+      # provided via a SOPS secret (see secret.sops.yaml) and mounted as a
+      # file at /config/recyclarr.yml. API keys come from Radarr/Sonarr.
+      #
+      # TWO-STEP BOOTSTRAP — recyclarr.yml needs API keys that only exist
+      # after Radarr and Sonarr are running:
+      #   1. Deploy with placeholder keys (leave radarr_api_key / sonarr_api_key empty)
+      #   2. Open Radarr UI → Settings → General → copy API key
+      #   3. Open Sonarr UI → Settings → General → copy API key
+      #   4. Fill in recyclarr_radarr_api_key and recyclarr_sonarr_api_key
+      #      in cluster.yaml, re-render, commit
+      #   5. Flux reconciles and the next CronJob run will sync successfully
+      config:
+        type: persistentVolumeClaim
+        storageClass: longhorn
+        size: 1Gi
+        accessMode: ReadWriteOnce
+        globalMounts:
+          - path: /config
+
+      # recyclarr.yml is kept as a SOPS secret because it contains API keys.
+      # It is mounted read-only; Recyclarr reads it on every run.
+      recyclarr-config:
+        type: secret
+        name: recyclarr-secret
+        globalMounts:
+          - path: /config/recyclarr.yml
+            subPath: recyclarr.yml
+            readOnly: true

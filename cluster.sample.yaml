@@ -1,0 +1,232 @@
+---
+# -- The network CIDR for the nodes.
+# (REQUIRED) / (e.g. 192.168.1.0/24)
+node_cidr: "192.168.1.0/24"
+
+# -- DNS servers to use for the cluster.
+#    (OPTIONAL) / (DEFAULT: ["1.1.1.1", "1.0.0.1"]) / (Cloudflare DNS)
+# node_dns_servers: []
+
+# -- NTP servers to use for the cluster.
+#    (OPTIONAL) / (DEFAULT: ["162.159.200.1", "162.159.200.123"]) / (Cloudflare NTP)
+# node_ntp_servers: []
+
+# -- The default gateway for the nodes.
+#    (OPTIONAL) / (DEFAULT: the first IP in the node_cidr)
+# node_default_gateway: ""
+
+# -- Attach a vlan tag to the Talos nodes. Not needed if ports on your switch are tagged or you are not using VLANs.
+#    (OPTIONAL) / (REF: https://www.talos.dev/latest/advanced/advanced-networking/#vlans)
+# node_vlan_tag: ""
+
+# -- The IP address of the Kube API.
+#    (REQUIRED) / (NOTE: Choose an unused IP in node_cidr)
+cluster_api_addr: "192.168.1.55"
+
+# -- Additional SANs to add to the Kube API cert. This is useful if you want to call the Kube API by hostname rather than IP
+#    (OPTIONAL) / (e.g. ["mycluster.example.com"])
+# cluster_api_tls_sans: []
+
+# -- The pod CIDR for the cluster, this must NOT overlap with any existing networks and should be a /16 (64K IPs).
+#    (OPTIONAL) / (DEFAULT: "10.42.0.0/16")
+# cluster_pod_cidr: ""
+
+# -- The service CIDR for the cluster, this must NOT overlap with any existing networks and should be a /16 (64K IPs).
+#    (OPTIONAL) / (DEFAULT: "10.43.0.0/16")
+# cluster_svc_cidr: ""
+
+# -- The Load balancer IP for k8s_gateway, this provides DNS to all your gateways when split DNS is configured on your internal DNS server (Dnsmasq, Pi-hole, etc)
+#    (REQUIRED) / (NOTE: Choose an unused IP in node_cidr)
+cluster_dns_gateway_addr: "192.168.1.56"
+
+# -- The Load balancer IP for the internal gateway
+#    (REQUIRED) / (NOTE: Choose an unused IP in node_cidr)
+cluster_gateway_addr: "192.168.1.57"
+
+# -- The Load balancer IP for Transmission peer port
+#    (REQUIRED for Transmission) / (NOTE: Choose an unused IP in node_cidr)
+transmission_peer_addr: "192.168.1.58"
+
+# -- The Load balancer IP for WireGuard Easy VPN
+#    (REQUIRED for WireGuard) / (NOTE: Choose an unused IP in node_cidr)
+wg_easy_vpn_addr: "192.168.1.59"
+
+# -- WireGuard Easy admin password for web UI
+#    (REQUIRED for WireGuard) / (NOTE: This will be encrypted with SOPS)
+wg_easy_admin_password: ""
+
+# -- External hostname for WireGuard clients to connect
+#    (REQUIRED for WireGuard) / (NOTE: Must match current WG_HOST)
+wg_easy_external_host: "vpn.jgrecu.dev"
+
+# -- Server private key (for migration - maintains same server identity)
+#    (REQUIRED for migration) / (NOTE: Extracted from existing wg0.conf)
+wg_easy_server_private_key: ""
+
+# -- The Load balancer IP for Pi-hole DNS server
+#    (REQUIRED for Pi-hole) / (NOTE: Choose an unused IP in node_cidr)
+pihole_dns_addr: "192.168.1.60"
+
+# -- Pi-hole admin dashboard password
+#    (REQUIRED for Pi-hole) / (NOTE: This will be encrypted in the Pi-hole secret)
+pihole_admin_password: "ChangeMe-SecurePassword123!"
+
+# -- Grafana admin password
+#    (REQUIRED) / (NOTE: This will be encrypted in the Grafana secret)
+grafana_admin_password: "ChangeMe-SecurePassword123!"
+
+# -- GitHub repository
+#    (REQUIRED) / (e.g. "onedr0p/cluster-template")
+repository_name: "your-github-username/your-repo-name"
+
+# -- GitHub repository branch
+#    (OPTIONAL) / (DEFAULT: "main")
+# repository_branch: ""
+
+# -- Repository visibility (public or private)
+#    (OPTIONAL) / (DEFAULT: "public") / (NOTE: See the README for information when set private)
+# repository_visibility: ""
+
+# -- Domain you wish to use from your Cloudflare account
+#    (REQUIRED) / (e.g. "example.com")
+cloudflare_domain: "example.com"
+
+# -- API Token for Cloudflare with the 'Zone:DNS:Edit' and 'Account:Cloudflare Tunnel:Read' permissions
+#    (REQUIRED) (NOTE: See the README for information on creating this)
+cloudflare_token: "your-cloudflare-api-token-here"
+
+# -- The Load balancer IP for the external gateway
+#    (REQUIRED) / (NOTE: Choose an unused IP in node_cidr)
+cloudflare_gateway_addr: "192.168.1.58"
+
+# -- The load balancer mode for cilium.
+#    (OPTIONAL) / (DEFAULT: "dsr") / (NOTE: accepted values are 'dsr' or 'snat') / (REF: https://docs.cilium.io/en/stable/network/kubernetes/kubeproxy-free/)
+cilium_loadbalancer_mode: "snat"
+
+# -- The IP address of the BGP router, to keep things simple, node network will be used for BGP peering.
+# (OPTIONAL) / (e.g. "192.168.1.1") / (REF: https://docs.cilium.io/en/latest/network/bgp-control-plane/bgp-control-plane/)
+# cilium_bgp_router_addr: ""
+
+# -- The BGP router ASN
+# (OPTIONAL) / (e.g. "64513")
+# cilium_bgp_router_asn: ""
+
+# -- The BGP node ASN
+# (OPTIONAL) / (e.g. "64514")
+# cilium_bgp_node_asn: ""
+
+# ============================================================================
+# NFS Configuration
+# ============================================================================
+
+# -- IP address of your NAS / NFS server
+#    (REQUIRED if using NFS storage)
+nfs_server_addr: "192.168.1.100"
+
+# -- NFS export path on your NAS (for app config/general use)
+#    (REQUIRED if using NFS storage)
+nfs_server_path: "/nfs"
+
+# -- NFS export path for your media library (films, series, music, downloads)
+#    All media apps (Radarr, Sonarr, Jellyfin, Transmission) mount this same
+#    share so hard-linking works between downloads and your media library.
+#    Expected structure: /videos/movies  /videos/tv
+#    (REQUIRED if using media apps)
+nfs_media_path: "/videos"
+
+# -- NFS export path for your photo library (Immich)
+#    (REQUIRED if using Immich)
+nfs_photos_path: "/immich"
+
+# -- NFS export path for your book/manga/comic library (Kavita)
+#    (REQUIRED if using Kavita)
+nfs_books_path: "/books"
+
+# -- NFS export path for Garage S3 object data
+#    Garage stores all S3 object chunks here. The share root is mounted directly.
+#    (REQUIRED if using Garage)
+nfs_garage_path: "/garage"
+
+# -- NFS export path for Nextcloud data
+#    Nextcloud manages its own directory structure within this share.
+#    (REQUIRED if using Nextcloud)
+nfs_nextcloud_path: "/nextcloud"
+
+# ============================================================================
+# Forgejo Configuration
+# ============================================================================
+
+# -- Forgejo admin email address (for initial admin account)
+#    (REQUIRED if using Forgejo)
+forgejo_admin_email: "admin@example.com"
+
+# -- Forgejo admin password (for initial admin account)
+#    Generate with: openssl rand -base64 16
+#    (REQUIRED if using Forgejo)
+forgejo_admin_password: "n4hWddbXSvtbLuRtfdKJOOTBaA0NqwyUVpSYvbjA"
+
+# -- Forgejo Actions runner registration token
+#    This token is required for the Forgejo runner to register and execute CI/CD jobs.
+#
+#    How to obtain:
+#    1. Deploy Forgejo first (will deploy without runners initially)
+#    2. Log into Forgejo UI as admin
+#    3. Navigate to: Site Administration → Runners → New runner token
+#    4. Copy the generated token and paste it here
+#    5. Run 'task configure --yes' and commit/push
+#    6. Flux will reconcile and deploy the runners
+#
+#    (REQUIRED for Forgejo Actions runners)
+#    NOTE: This will be encrypted with SOPS when you run 'task configure'
+forgejo_runner_secret: ""
+
+# ============================================================================
+# Recyclarr Configuration (TRaSH Guides sync for Radarr/Sonarr)
+# ============================================================================
+
+# -- Radarr API key (found in Radarr → Settings → General → API Key)
+#    (REQUIRED if using Recyclarr)
+recyclarr_radarr_api_key: ""
+
+# -- Sonarr API key (found in Sonarr → Settings → General → API Key)
+#    (REQUIRED if using Recyclarr)
+recyclarr_sonarr_api_key: ""
+
+# ============================================================================
+# Garage S3 Configuration
+# ============================================================================
+
+# -- Garage RPC secret (secures inter-node RPC, required even for single-node)
+#    Generate with: openssl rand -hex 32
+#    (REQUIRED if using Garage)
+garage_rpc_secret: ""
+
+# -- Garage admin API token (used for bootstrap CLI commands)
+#    Generate with: openssl rand -base64 32
+#    (REQUIRED if using Garage)
+garage_admin_token: ""
+
+# -- Garage S3 access credentials
+#    Leave empty until you run: task storage:bootstrap-garage
+#    This task will create buckets, generate keys, and update these values automatically.
+#    (REQUIRED after bootstrap)
+garage_s3_access_key_id: ""
+garage_s3_secret_access_key: ""
+
+# ============================================================================
+# Volsync Backup Configuration
+# ============================================================================
+
+# -- Volsync Restic password (encrypts backup data)
+#    Generate with: openssl rand -base64 32
+#    (REQUIRED if using Volsync for backups)
+#    NOTE: This will be encrypted with SOPS when you run 'task configure'
+volsync_restic_password: ""
+
+# -- Volsync S3 credentials (for accessing Garage S3 backup bucket)
+#    These are set automatically when you run: task storage:bootstrap-garage
+#    The bootstrap script creates the 'volsync-backups' bucket and generates credentials.
+#    (REQUIRED if using Volsync - auto-populated by bootstrap task)
+#    NOTE: Use the same credentials as garage_s3_access_key_id/garage_s3_secret_access_key
+volsync_s3_access_key: ""
+volsync_s3_secret_key: ""

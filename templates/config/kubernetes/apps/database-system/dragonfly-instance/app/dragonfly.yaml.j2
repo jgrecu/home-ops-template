@@ -1,0 +1,41 @@
+---
+apiVersion: dragonflydb.io/v1alpha1
+kind: Dragonfly
+metadata:
+  name: dragonfly
+  labels:
+    app.kubernetes.io/name: dragonfly
+    app.kubernetes.io/instance: dragonfly
+spec:
+  # Single replica for home lab (can scale to 2+ for HA)
+  replicas: 1
+
+  # Snapshot configuration for data persistence
+  snapshot:
+    cron: "0 */6 * * *"  # Snapshot every 6 hours
+    persistentVolumeClaimSpec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 5Gi
+      storageClassName: longhorn
+
+  # Resource allocation suitable for Raspberry Pi cluster
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 768Mi
+
+  # Dragonfly container configuration
+  image: docker.dragonflydb.io/dragonflydb/dragonfly:v1.38.0
+
+  # Additional Dragonfly args (optional)
+  args:
+    - --cache_mode=true       # Enable cache mode for Redis/Valkey replacement
+    - --maxmemory=512mb       # Max memory usage (256MB per proactor thread)
+    - --proactor_threads=2    # CPU threads (adjust for Pi performance)
+    - --default_lua_flags=allow-undeclared-keys  # Required for BullMQ (Immich)

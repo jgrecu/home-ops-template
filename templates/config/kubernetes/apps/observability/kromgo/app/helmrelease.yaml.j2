@@ -1,0 +1,126 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kromgo
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: kromgo
+  interval: 1h
+  values:
+    controllers:
+      kromgo:
+        strategy: RollingUpdate
+        containers:
+          app:
+            image:
+              repository: ghcr.io/kashalls/kromgo
+              tag: v0.9.1
+            env:
+              # Prometheus endpoint to query metrics from
+              PROMETHEUS_URL: http://kube-prometheus-stack-prometheus.observability.svc.cluster.local:9090
+              PORT: &port 8080
+              HEALTH_PORT: &healthPort 8888
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /readyz
+                    port: *healthPort
+                  initialDelaySeconds: 10
+                  periodSeconds: 30
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /readyz
+                    port: *healthPort
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities: { drop: ["ALL"] }
+              readOnlyRootFilesystem: true
+            resources:
+              requests:
+                cpu: 5m
+              limits:
+                memory: 64Mi
+
+    configMaps:
+      config:
+        data:
+          config.yaml: |
+            # Kromgo exposes individual Prometheus metrics as plain-text HTTP
+            # endpoints — designed for embedding badges in a GitHub README.
+            #
+            # Example badge URL: https://img.shields.io/endpoint?url=http://kromgo.yourdomain.com/cluster_node_count
+            # Full docs: https://github.com/kashalls/kromgo
+
+            metrics:
+              - name: cluster_node_count
+                query: count(kube_node_info)
+                label: "Nodes"
+                suffix: " nodes"
+                colors:
+                  - { color: "green", min: 3, max: 3 }
+                  - { color: "orange", min: 1, max: 2 }
+
+              - name: cluster_cpu_usage
+                query: round(avg(100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)), 0.1)
+                label: "CPU"
+                suffix: "%"
+                colors:
+                  - { color: "green", min: 0, max: 50 }
+                  - { color: "orange", min: 51, max: 75 }
+                  - { color: "red", min: 76, max: 100 }
+
+              - name: cluster_memory_usage
+                query: round(sum(node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / sum(node_memory_MemTotal_bytes) * 100, 0.1)
+                label: "Memory"
+                suffix: "%"
+                colors:
+                  - { color: "green", min: 0, max: 50 }
+                  - { color: "orange", min: 51, max: 75 }
+                  - { color: "red", min: 76, max: 100 }
+
+              - name: cluster_pods_count
+                query: sum(kube_pod_status_phase{phase="Running"})
+                label: "Pods"
+                suffix: " pods"
+                colors:
+                  - { color: "green", min: 1, max: 9999 }
+
+    persistence:
+      config:
+        type: configMap
+        identifier: config
+        globalMounts:
+          - path: /kromgo/config.yaml
+            subPath: config.yaml
+            readOnly: true
+
+    service:
+      app:
+        ports:
+          http:
+            port: *port
+          health:
+            port: *healthPort
+
+    route:
+      app:
+        # Internal only — badges are generated from the internal URL and
+        # embedded in READMEs or dashboards. No public exposure needed.
+        # No homepage entry — Kromgo has no UI, just API endpoints for badges.
+        hostnames: ["kromgo.${SECRET_DOMAIN}"]
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: *port

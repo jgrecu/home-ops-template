@@ -1,0 +1,75 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: autobrr
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: autobrr
+  interval: 1h
+  values:
+    controllers:
+      autobrr:
+        containers:
+          app:
+            image:
+              repository: ghcr.io/autobrr/autobrr
+              tag: v1.76.0
+            env:
+              AUTOBRR__HOST: 0.0.0.0
+              AUTOBRR__PORT: &port 7474
+              TZ: "Europe/Madrid"
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/healthz/liveness
+                    port: *port
+                  initialDelaySeconds: 10
+                  periodSeconds: 30
+              readiness: *probes
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 10m
+              limits:
+                memory: 256Mi
+
+    persistence:
+      config:
+        type: persistentVolumeClaim
+        storageClass: longhorn
+        size: 1Gi
+        accessMode: ReadWriteOnce
+        globalMounts:
+          - path: /config
+
+    service:
+      app:
+        ports:
+          http:
+            port: *port
+
+    route:
+      app:
+        hostnames: ["autobrr.${SECRET_DOMAIN}"]
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: *port
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: Downloads
+          gethomepage.dev/name: Autobrr
+          gethomepage.dev/icon: autobrr.png
+          gethomepage.dev/description: Torrent automation
+          gethomepage.dev/href: https://autobrr.${SECRET_DOMAIN}

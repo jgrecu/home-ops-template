@@ -1,0 +1,12 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: homepage-config
+data:
+  kubernetes.yaml: |
+    # Run in cluster mode - uses ServiceAccount token for auth
+    mode: cluster
+
+    # Enable Gateway API (HTTPRoute) auto-discovery
+    gateway: true

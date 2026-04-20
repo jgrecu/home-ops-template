@@ -1,0 +1,23 @@
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: forgejo
+spec:
+  # Must wait for the CNPG operator so the Cluster CRD exists before postgres.yaml is applied
+  dependsOn:
+    - name: cloudnative-pg
+      namespace: database-system
+  interval: 1h
+  path: ./kubernetes/apps/forgejo/forgejo/app
+  postBuild:
+    substituteFrom:
+      - name: cluster-secrets
+        kind: Secret
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: forgejo
+  wait: true

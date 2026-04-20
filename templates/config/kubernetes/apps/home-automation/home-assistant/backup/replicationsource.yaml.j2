@@ -1,0 +1,39 @@
+---
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  name: home-assistant-config-backup
+  namespace: home-automation
+spec:
+  sourcePVC: home-assistant
+  trigger:
+    schedule: "0 2 * * *"  # Daily at 2 AM
+  restic:
+    repository: home-assistant-config-restic-secret
+    retain:
+      daily: 7      # Last week
+      weekly: 8     # Last 2 months
+      monthly: 6    # Last 6 months
+    copyMethod: Snapshot
+    storageClassName: longhorn
+    volumeSnapshotClassName: longhorn
+    capacity: 5Gi
+    accessModes:
+      - ReadWriteOnce
+    pruneIntervalDays: 7
+    cacheCapacity: 1Gi
+    cacheStorageClassName: longhorn
+    cacheAccessModes:
+      - ReadWriteOnce
+    moverResources:
+      limits:
+        memory: 512Mi
+      requests:
+        cpu: 50m
+        memory: 256Mi
+    moverSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 65534
+      fsGroup: 65534
+      seccompProfile:
+        type: RuntimeDefault

@@ -1,0 +1,81 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: jackett
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: jackett
+  interval: 1h
+  values:
+    controllers:
+      jackett:
+        containers:
+          app:
+            image:
+              repository: lscr.io/linuxserver/jackett
+              # renovate: datasource=docker depName=lscr.io/linuxserver/jackett
+              tag: v0.24.1601-ls374
+            env:
+              TZ: "Europe/Madrid"
+              # LinuxServer: drop to this UID/GID after s6-overlay init
+              PUID: "1000"
+              PGID: "1000"
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  # LinuxServer images start as root then drop; use tcp probe
+                  # to avoid auth/redirect issues during health checks
+                  tcpSocket:
+                    port: &port 9117
+                  initialDelaySeconds: 30
+                  periodSeconds: 30
+              readiness:
+                enabled: false
+            # LinuxServer images use s6-overlay which starts as root and drops
+            # to PUID/PGID. Do not drop all capabilities or the init will fail.
+            securityContext:
+              allowPrivilegeEscalation: false
+            resources:
+              requests:
+                cpu: 10m
+              limits:
+                memory: 256Mi
+
+    persistence:
+      config:
+        type: persistentVolumeClaim
+        storageClass: longhorn
+        size: 2Gi
+        accessMode: ReadWriteOnce
+        globalMounts:
+          - path: /config
+
+    service:
+      app:
+        ports:
+          http:
+            port: *port
+
+    route:
+      app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: Downloads
+          gethomepage.dev/name: Jackett
+          gethomepage.dev/icon: jackett.png
+          gethomepage.dev/description: Torrent indexer proxy
+          gethomepage.dev/href: https://jackett.${SECRET_DOMAIN}
+        hostnames: ["jackett.${SECRET_DOMAIN}"]
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: *port
+    # Internal only — Radarr/Sonarr reach Jackett via ClusterIP

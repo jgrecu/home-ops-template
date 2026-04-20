@@ -1,0 +1,147 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: gatus
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: gatus
+  interval: 1h
+  values:
+    controllers:
+      gatus:
+        strategy: RollingUpdate
+        containers:
+          app:
+            image:
+              repository: ghcr.io/twin/gatus
+              tag: v5.35.0
+            env:
+              # Tell Gatus where its config file lives
+              GATUS_CONFIG_PATH: /config/config.yaml
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health
+                    port: &port 8080
+                  initialDelaySeconds: 10
+                  periodSeconds: 30
+              readiness: *probes
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities: { drop: ["ALL"] }
+              readOnlyRootFilesystem: true
+            resources:
+              requests:
+                cpu: 10m
+              limits:
+                memory: 128Mi
+
+    configMaps:
+      config:
+        data:
+          config.yaml: |
+            # Gatus status page configuration.
+            # Add an entry per service you want to monitor.
+            # Gatus checks each endpoint on the defined interval and
+            # shows a status page with uptime history and response times.
+            #
+            # Full docs: https://github.com/TwiN/gatus#configuration
+
+            web:
+              port: 8080
+
+            storage:
+              type: sqlite
+              path: /data/gatus.db
+
+            endpoints:
+              - name: Grafana
+                group: Observability
+                url: "http://grafana.observability.svc.cluster.local"
+                interval: 5m
+                conditions:
+                  - "[STATUS] == 200"
+
+              - name: Homepage
+                group: Internal
+                url: "http://homepage.default.svc.cluster.local:3000"
+                interval: 5m
+                conditions:
+                  - "[STATUS] == 200"
+
+              - name: Immich
+                group: External
+                url: "https://immich.${SECRET_DOMAIN}"
+                interval: 5m
+                conditions:
+                  - "[STATUS] == 200"
+                  - "[RESPONSE_TIME] < 3000"
+
+              - name: Nextcloud
+                group: External
+                url: "https://nextcloud.${SECRET_DOMAIN}/status.php"
+                interval: 5m
+                conditions:
+                  - "[STATUS] == 200"
+                  - "[BODY].installed == true"
+
+              - name: Forgejo
+                group: External
+                url: "https://forgejo.${SECRET_DOMAIN}"
+                interval: 5m
+                conditions:
+                  - "[STATUS] == 200"
+
+              - name: Kavita
+                group: External
+                url: "https://kavita.${SECRET_DOMAIN}"
+                interval: 5m
+                conditions:
+                  - "[STATUS] == 200"
+
+    persistence:
+      # Config file from the ConfigMap defined above
+      config:
+        type: configMap
+        identifier: config
+        globalMounts:
+          - path: /config
+            readOnly: true
+      # SQLite database for storing uptime history
+      data:
+        type: persistentVolumeClaim
+        storageClass: longhorn
+        size: 1Gi
+        accessMode: ReadWriteOnce
+        globalMounts:
+          - path: /data
+
+    service:
+      app:
+        ports:
+          http:
+            port: *port
+
+    route:
+      app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: "Gatus"
+          gethomepage.dev/group: "Observability"
+          gethomepage.dev/description: "Status page and uptime monitoring"
+          gethomepage.dev/icon: "gatus.png"
+          gethomepage.dev/href: "https://gatus.${SECRET_DOMAIN}"
+        hostnames: ["gatus.${SECRET_DOMAIN}"]
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: *port

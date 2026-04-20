@@ -1,0 +1,48 @@
+---
+# Immich requires PostgreSQL with the pgvecto.rs extension for its
+# AI/vector search features (face clustering, CLIP semantic search).
+# We use the cloudnative-pgvecto.rs image instead of stock PostgreSQL —
+# same CNPG operator, just a custom image that includes the extension.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: immich-postgres
+spec:
+  # Custom image with pgvecto.rs extension built in
+  imageName: ghcr.io/tensorchord/cloudnative-pgvecto.rs:16-v0.3.0
+  # 2 instances = primary + 1 standby. CNPG handles replication.
+  # longhorn-single avoids double replication — see forgejo postgres.yaml.
+  instances: 2
+  storage:
+    storageClass: longhorn-single
+    size: 10Gi
+  postgresql:
+    shared_preload_libraries:
+      - "vectors.so"
+  bootstrap:
+    initdb:
+      database: immich
+      owner: immich
+      # Enable required extensions after the database is created
+      postInitApplicationSQL:
+        - CREATE EXTENSION IF NOT EXISTS vectors;
+        - CREATE EXTENSION IF NOT EXISTS earthdistance CASCADE;
+        - ALTER DATABASE immich SET search_path TO public, vectors;
+        - GRANT USAGE ON SCHEMA vectors TO immich;
+        - GRANT ALL ON ALL TABLES IN SCHEMA vectors TO immich;
+  # Backup disabled due to Garage S3 API incompatibility
+  # Volsync provides daily PVC backups as alternative
+  # backup:
+#   barmanObjectStore:
+#     destinationPath: "s3://cnpg-backups/immich-postgres/"
+#     endpointURL: "http://garage-s3.storage.svc.cluster.local:3900"
+#     s3Credentials:
+#       accessKeyId:
+#         name: garage-cnpg-secret
+#         key: ACCESS_KEY_ID
+#       secretAccessKey:
+#         name: garage-cnpg-secret
+#         key: ACCESS_SECRET_KEY
+#     wal:
+#       compression: gzip
+#   retentionPolicy: "180d"  # 6 months retention to match Volsync

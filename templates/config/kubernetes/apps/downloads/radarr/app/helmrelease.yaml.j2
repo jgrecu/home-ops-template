@@ -1,0 +1,103 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: radarr
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: radarr
+  interval: 1h
+  values:
+    controllers:
+      radarr:
+        # Must be on the same node as Transmission — they share the media-downloads
+        # ReadWriteOnce PVC. Label your node: kubectl label node <name> media-node=true
+        pod:
+          nodeSelector:
+            media-node: "true"
+        containers:
+          app:
+            image:
+              repository: lscr.io/linuxserver/radarr
+              # renovate: datasource=docker depName=lscr.io/linuxserver/radarr
+              tag: 6.1.1
+            env:
+              TZ: "Europe/Madrid"
+              # LinuxServer: drop to this UID/GID after s6-overlay init
+              PUID: "1000"
+              PGID: "1000"
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /ping
+                    port: &port 7878
+                  initialDelaySeconds: 30
+                  periodSeconds: 30
+              readiness: *probes
+            # LinuxServer images use s6-overlay which starts as root and drops
+            # to PUID/PGID. Do not drop all capabilities or the init will fail.
+            securityContext:
+              allowPrivilegeEscalation: false
+            resources:
+              requests:
+                cpu: 10m
+              limits:
+                memory: 512Mi
+
+    persistence:
+      config:
+        type: persistentVolumeClaim
+        storageClass: longhorn
+        size: 2Gi
+        accessMode: ReadWriteOnce
+        globalMounts:
+          - path: /config
+
+      # Shared download staging area — same PVC as Transmission. Radarr monitors
+      # /downloads for completed files and imports them to /media/movies.
+      # Since downloads (Longhorn) and media (NFS) are different filesystems,
+      # Radarr will copy-then-delete rather than hardlink on import. This is
+      # expected behavior — set "Copy" (not "Move") in Radarr's import settings.
+      downloads:
+        type: persistentVolumeClaim
+        existingClaim: media-downloads
+        globalMounts:
+          - path: /downloads
+
+      # NFS media library — Radarr imports finished movies here.
+      # Root folder in Radarr UI should be set to /media/Films
+      # Uses shared static PV pointing to /videos on NAS
+      media:
+        type: persistentVolumeClaim
+        existingClaim: media-library
+        globalMounts:
+          - path: /media
+
+    service:
+      app:
+        ports:
+          http:
+            port: *port
+
+    route:
+      app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: Downloads
+          gethomepage.dev/name: Radarr
+          gethomepage.dev/icon: radarr.png
+          gethomepage.dev/description: Movie collection manager
+          gethomepage.dev/href: https://radarr.${SECRET_DOMAIN}
+        hostnames: ["radarr.${SECRET_DOMAIN}"]
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: *port

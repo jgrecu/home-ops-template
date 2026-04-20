@@ -1,0 +1,37 @@
+---
+# CloudNativePG manages this PostgreSQL instance.
+# The operator automatically creates a secret named "nextcloud-postgres-app"
+# containing: username, password, host, port, dbname, uri.
+# Nextcloud reads the password directly from that secret.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: nextcloud-postgres
+spec:
+  # 2 instances = primary + 1 standby on a different node.
+  # longhorn-single: Longhorn stores 1 replica per instance.
+  # CNPG replication handles HA — no need for Longhorn to duplicate.
+  instances: 2
+  storage:
+    storageClass: longhorn-single
+    size: 10Gi
+  bootstrap:
+    initdb:
+      database: nextcloud
+      owner: nextcloud
+  # Backup disabled due to Garage S3 API incompatibility
+  # Volsync provides daily PVC backups as alternative
+  # backup:
+#   barmanObjectStore:
+#     destinationPath: "s3://cnpg-backups/nextcloud-postgres/"
+#     endpointURL: "http://garage-s3.storage.svc.cluster.local:3900"
+#     s3Credentials:
+#       accessKeyId:
+#         name: garage-cnpg-secret
+#         key: ACCESS_KEY_ID
+#       secretAccessKey:
+#         name: garage-cnpg-secret
+#         key: ACCESS_SECRET_KEY
+#     wal:
+#       compression: gzip
+#   retentionPolicy: "180d"  # 6 months retention to match Volsync

@@ -1,0 +1,39 @@
+---
+version: '3'
+
+tasks:
+
+  bootstrap-garage:
+    desc: Bootstrap Garage S3 storage (creates buckets, keys, updates cluster.yaml)
+    cmd: bash {{.SCRIPTS_DIR}}/bootstrap-garage.sh
+    preconditions:
+      - test -f {{.KUBECONFIG}}
+      - test -f {{.SCRIPTS_DIR}}/bootstrap-garage.sh
+      - which kubectl jq curl
+      - sh: kubectl get pod -n storage garage-0 &>/dev/null
+        msg: Garage pod not found (have you deployed storage apps?)
+
+  restore-pvc:
+    desc: Restore a PVC from Volsync backup (usage - task storage:restore-pvc -- <namespace> <pvc-name> <capacity>)
+    summary: |
+      Restore a PVC from Volsync backup.
+
+      This task automates the process of restoring a PVC that was backed up by Volsync.
+      It will:
+      1. Scale down deployments using the PVC
+      2. Delete the existing PVC (if present)
+      3. Create a ReplicationDestination to restore from backup
+      4. Wait for restore to complete
+      5. Scale deployments back up
+
+      Examples:
+        task storage:restore-pvc -- forgejo forgejo-data 20Gi
+        task storage:restore-pvc -- entertainment immich-db 10Gi
+        task storage:restore-pvc -- default homepage 1Gi
+    cmd: bash {{.SCRIPTS_DIR}}/restore-pvc.sh {{.CLI_ARGS}}
+    preconditions:
+      - test -f {{.KUBECONFIG}}
+      - test -f {{.SCRIPTS_DIR}}/restore-pvc.sh
+      - which kubectl jq
+      - sh: test -n "{{.CLI_ARGS}}"
+        msg: "Usage: task storage:restore-pvc -- <namespace> <pvc-name> <capacity>"

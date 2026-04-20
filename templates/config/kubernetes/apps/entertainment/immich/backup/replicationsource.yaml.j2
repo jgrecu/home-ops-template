@@ -1,0 +1,65 @@
+---
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  name: immich-db-backup
+  namespace: entertainment
+spec:
+  # Source PVC to backup
+  sourcePVC: immich-db
+
+  # Backup schedule - daily at 2:30 AM (off-peak)
+  trigger:
+    schedule: "30 2 * * *"
+
+  # Restic configuration for S3 backups
+  restic:
+    # Reference to secret with S3 credentials
+    repository: immich-db-restic-secret
+
+    # Retention policy
+    retain:
+      hourly: 0      # Don't keep hourly - too frequent for home lab
+      daily: 7       # Last week
+      weekly: 8      # Last 2 months
+      monthly: 6     # Last 6 months
+      yearly: 0      # Don't keep yearly for home lab
+
+    # Use Longhorn snapshots for consistent backups
+    copyMethod: Snapshot
+
+    # Storage class and snapshot class
+    storageClassName: longhorn
+    volumeSnapshotClassName: longhorn
+
+    # Capacity for temporary snapshot (match source PVC size)
+    capacity: 10Gi
+
+    # Access mode
+    accessModes:
+      - ReadWriteOnce
+
+    # Prune old backups weekly
+    pruneIntervalDays: 7
+
+    # Cache settings for faster backups
+    cacheCapacity: 1Gi
+    cacheStorageClassName: longhorn
+    cacheAccessModes:
+      - ReadWriteOnce
+
+    # Resource limits (RPi4 friendly)
+    moverResources:
+      limits:
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 256Mi
+
+    # Security context
+    moverSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 65534
+      fsGroup: 65534
+      seccompProfile:
+        type: RuntimeDefault

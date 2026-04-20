@@ -1,0 +1,82 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: forgejo
+spec:
+  interval: 1h
+  chart:
+    spec:
+      chart: forgejo
+      version: 17.0.0
+      sourceRef:
+        kind: HelmRepository
+        name: forgejo
+      interval: 1h
+  values:
+    gitea:
+      admin:
+        existingSecret: forgejo-secret
+        email: "#{ forgejo_admin_email }#"
+      config:
+        server:
+          DOMAIN: "forgejo.${SECRET_DOMAIN}"
+          ROOT_URL: "https://forgejo.${SECRET_DOMAIN}"
+          # SSH cloning requires a separate TCP load balancer outside this
+          # template (Cloudflare Tunnel does not support raw TCP on port 22).
+          # Use HTTPS for git remotes: https://forgejo.yourdomain.com/user/repo
+          SSH_DOMAIN: "forgejo.${SECRET_DOMAIN}"
+          SSH_PORT: 22
+          DISABLE_SSH: "false"
+        database:
+          DB_TYPE: postgres
+          # CloudNativePG creates a service named <cluster>-rw for the primary
+          HOST: "forgejo-postgres-rw:5432"
+          NAME: forgejo
+          USER: forgejo
+        cache:
+          ADAPTER: redis
+          HOST: redis://dragonfly.database-system.svc.cluster.local:6379/0
+        session:
+          PROVIDER: redis
+          PROVIDER_CONFIG: redis://dragonfly.database-system.svc.cluster.local:6379/1
+        queue:
+          TYPE: redis
+          CONN_STR: redis://dragonfly.database-system.svc.cluster.local:6379/2
+        packages:
+          # Enables the built-in container registry.
+          # Push/pull images: forgejo.${SECRET_DOMAIN}/username/image:tag
+          ENABLED: "true"
+        actions:
+          # Enables Forgejo Actions (GitHub Actions-compatible CI/CD).
+          # Runners must register separately — see forgejo-runner app.
+          ENABLED: "true"
+          DEFAULT_ACTIONS_URL: "https://code.forgejo.org"
+      # Inject the database password from the CNPG-generated secret.
+      # CNPG creates "forgejo-postgres-app" automatically when the Cluster
+      # resource is applied — no password to manage manually.
+      additionalConfigFromEnvs:
+        - name: GITEA__database__PASSWD
+          valueFrom:
+            secretKeyRef:
+              name: forgejo-postgres-app
+              key: password
+
+    persistence:
+      enabled: true
+      storageClass: longhorn
+      size: 20Gi
+
+    # PostgreSQL is managed by CloudNativePG — disable the subcharts
+    postgresql:
+      enabled: false
+    postgresql-ha:
+      enabled: false
+
+    # Redis is handled by shared Dragonfly instance
+    redis-cluster:
+      enabled: false
+
+    # Route managed separately via httproute.yaml
+    route:
+      enabled: false

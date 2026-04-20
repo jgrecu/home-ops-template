@@ -1,0 +1,39 @@
+---
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  name: recyclarr-config-backup
+  namespace: downloads
+spec:
+  sourcePVC: recyclarr
+  trigger:
+    schedule: "0 3 * * *"  # Daily at 3 AM
+  restic:
+    repository: recyclarr-config-restic-secret
+    retain:
+      daily: 7      # Last week
+      weekly: 8     # Last 2 months
+      monthly: 6    # Last 6 months
+    copyMethod: Snapshot
+    storageClassName: longhorn
+    volumeSnapshotClassName: longhorn
+    capacity: 1Gi
+    accessModes:
+      - ReadWriteOnce
+    pruneIntervalDays: 7
+    cacheCapacity: 512Mi
+    cacheStorageClassName: longhorn
+    cacheAccessModes:
+      - ReadWriteOnce
+    moverResources:
+      limits:
+        memory: 256Mi
+      requests:
+        cpu: 50m
+        memory: 128Mi
+    moverSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 65534
+      fsGroup: 65534
+      seccompProfile:
+        type: RuntimeDefault

@@ -1,0 +1,48 @@
+---
+# CloudNativePG manages this PostgreSQL instance.
+# The operator automatically creates a secret named "forgejo-postgres-app"
+# in this namespace containing: username, password, host, port, dbname, uri.
+# Forgejo's HelmRelease reads the password directly from that secret.
+#
+# To add PostgreSQL for another app, copy this pattern into that app's directory.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: forgejo-postgres
+spec:
+  # 2 instances = primary + 1 standby on a different node.
+  # CNPG streams WAL between them — this is the replication.
+  # longhorn-single ensures Longhorn does NOT add a second layer of
+  # replication on top. Each instance has 1 Longhorn replica = 2 total
+  # copies across 2 nodes. Failover is automatic if the primary node dies.
+  instances: 2
+  storage:
+    storageClass: longhorn-single
+    size: 5Gi
+  bootstrap:
+    initdb:
+      database: forgejo
+      owner: forgejo
+  # Backup disabled due to Garage S3 API incompatibility with barman-cloud HeadBucket
+  # Volsync provides daily PVC backups as alternative
+  # backup:
+  #   barmanObjectStore:
+  #     destinationPath: "s3://cnpg-backups/forgejo-postgres/"
+  #     endpointURL: "http://garage-s3.storage.svc.cluster.local:3900"
+  #     s3Credentials:
+  #       accessKeyId:
+  #         name: garage-cnpg-secret
+  #         key: ACCESS_KEY_ID
+  #       secretAccessKey:
+  #         name: garage-cnpg-secret
+  #         key: ACCESS_SECRET_KEY
+  #     data:
+  #       immediateCheckpoint: false
+  #       jobs: 2
+  #     wal:
+  #       compression: gzip
+  #       maxParallel: 2
+  #       archiveAdditionalCommandArgs:
+  #         - "--cloud-provider=aws-s3"
+  #     serverName: forgejo-postgres
+  #   retentionPolicy: "180d"
