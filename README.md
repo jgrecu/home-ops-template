@@ -7,7 +7,7 @@ A opinionated, batteries-included Kubernetes home-lab template built on [Talos L
 | Category | Apps |
 |---|---|
 | **Core** | Talos Linux, Flux CD, Cilium, CoreDNS, metrics-server, reloader, spegel |
-| **Networking** | Envoy Gateway, k8s-gateway, Cloudflare DNS + Tunnel, Pi-hole, WireGuard Easy |
+| **Networking** | Envoy Gateway, k8s-gateway, Cloudflare DNS + Tunnel, Pi-hole |
 | **Storage** | NFS CSI, Garage S3, Longhorn, Volsync |
 | **Databases** | CloudNative-PG, Dragonfly |
 | **Observability** | Prometheus, Grafana, Loki, Fluent-bit, Gatus, Kromgo, smartctl-exporter |
@@ -141,18 +141,3 @@ Creates S3 buckets, generates access keys, and writes the credentials back into 
 │   └── template/         # init, configure, tidy tasks
 └── scripts/              # Shell scripts called by tasks
 ```
-
-## Extracting from an existing repo
-
-If you are pulling this template out of an existing cluster repo:
-
-1. Copy the `templates/` directory, `.taskfiles/`, `scripts/`, `Taskfile.yaml`, `makejinja.toml`, `cluster.sample.yaml`, `nodes.sample.yaml` into a fresh repository.
-2. Reset secrets — generate a new `age.key`, deploy key, and push token via `task init`.
-3. Update `cluster.yaml` with your values and re-run `task configure`.
-4. Remove any app-specific SOPS secrets from the new repo — they reference your old age key.
-
-## Secrets
-
-All secrets are encrypted with [SOPS](https://getsops.io/) using an age key. The key lives at `age.key` in the repo root and is **never committed**. Add it to `.gitignore`.
-
-The `.sops.yaml` at the repo root defines which files are encrypted (all `*.sops.*` files).

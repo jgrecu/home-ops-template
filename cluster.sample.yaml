@@ -47,22 +47,6 @@ cluster_gateway_addr: "192.168.1.57"
 #    (REQUIRED for Transmission) / (NOTE: Choose an unused IP in node_cidr)
 transmission_peer_addr: "192.168.1.58"
 
-# -- The Load balancer IP for WireGuard Easy VPN
-#    (REQUIRED for WireGuard) / (NOTE: Choose an unused IP in node_cidr)
-wg_easy_vpn_addr: "192.168.1.59"
-
-# -- WireGuard Easy admin password for web UI
-#    (REQUIRED for WireGuard) / (NOTE: This will be encrypted with SOPS)
-wg_easy_admin_password: ""
-
-# -- External hostname for WireGuard clients to connect
-#    (REQUIRED for WireGuard) / (NOTE: Must match current WG_HOST)
-wg_easy_external_host: "vpn.jgrecu.dev"
-
-# -- Server private key (for migration - maintains same server identity)
-#    (REQUIRED for migration) / (NOTE: Extracted from existing wg0.conf)
-wg_easy_server_private_key: ""
-
 # -- The Load balancer IP for Pi-hole DNS server
 #    (REQUIRED for Pi-hole) / (NOTE: Choose an unused IP in node_cidr)
 pihole_dns_addr: "192.168.1.60"
@@ -163,7 +147,7 @@ forgejo_admin_email: "admin@example.com"
 # -- Forgejo admin password (for initial admin account)
 #    Generate with: openssl rand -base64 16
 #    (REQUIRED if using Forgejo)
-forgejo_admin_password: "n4hWddbXSvtbLuRtfdKJOOTBaA0NqwyUVpSYvbjA"
+forgejo_admin_password: "ChangeMe-SecurePassword123!"
 
 # -- Forgejo Actions runner registration token
 #    This token is required for the Forgejo runner to register and execute CI/CD jobs.
