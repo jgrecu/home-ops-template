@@ -2,14 +2,14 @@
 apiVersion: volsync.backube/v1alpha1
 kind: ReplicationSource
 metadata:
-  name: jackett-config-backup
+  name: prowlarr-config-backup
   namespace: downloads
 spec:
-  sourcePVC: jackett
+  sourcePVC: prowlarr
   trigger:
     schedule: "0 3 * * *"  # Daily at 3 AM
   restic:
-    repository: jackett-config-restic-secret
+    repository: prowlarr-config-restic-secret
     retain:
       daily: 7      # Last week
       weekly: 8     # Last 2 months

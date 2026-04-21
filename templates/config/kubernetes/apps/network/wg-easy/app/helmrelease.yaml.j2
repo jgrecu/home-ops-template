@@ -1,0 +1,136 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app wg-easy
+  namespace: network
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: wg-easy
+  interval: 1h
+  values:
+    controllers:
+      wg-easy:
+        initContainers:
+          # Set up nftables rules before WireGuard starts
+          nftables-setup:
+            image:
+              repository: alpine
+              tag: 3.23
+            command:
+              - /bin/sh
+              - -c
+              - |
+                apk add --no-cache nftables
+                nft add table ip nat
+                nft add chain ip nat postrouting { type nat hook postrouting priority 100 \; }
+                nft add rule ip nat postrouting oifname "eth0" ip saddr 10.8.0.0/24 masquerade
+                nft add table ip filter
+                nft add chain ip filter input { type filter hook input priority 0 \; }
+                nft add rule ip filter input udp dport 51820 accept
+                nft add chain ip filter forward { type filter hook forward priority 0 \; }
+                nft add rule ip filter forward iifname "wg0" accept
+                nft add rule ip filter forward oifname "wg0" accept
+            securityContext:
+              privileged: true
+        containers:
+          app:
+            image:
+              repository: ghcr.io/wg-easy/wg-easy
+              # renovate: datasource=docker depName=ghcr.io/wg-easy/wg-easy
+              tag: 15
+            env:
+              TZ: "Europe/Madrid"
+              # Web UI port
+              PORT: "51821"
+              # Allow HTTP access (behind internal gateway with HTTPS)
+              INSECURE: "true"
+              # Minimal configuration required for v15
+              INIT_ENABLED: "true"
+              INIT_USERNAME: "admin"
+              INIT_PASSWORD: "testpassword123"
+              INIT_HOST: "#{ wg_easy_external_host }#"
+              INIT_PORT: "51820"
+              INIT_DNS: "#{ pihole_dns_addr }#"
+              INIT_IPV4_CIDR: "10.8.0.0/24"
+              INIT_ALLOWED_IPS: "192.168.1.0/24, 10.42.0.0/16, 10.43.0.0/16"
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: &webPort 51821
+                  initialDelaySeconds: 30
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 5
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: *webPort
+                  initialDelaySeconds: 15
+                  periodSeconds: 10
+            # WireGuard requires NET_ADMIN and SYS_MODULE capabilities
+            # Talos Linux requires privileged mode for these capabilities
+            securityContext:
+              privileged: true
+            resources:
+              requests:
+                cpu: 10m
+                memory: 128Mi
+              limits:
+                memory: 256Mi
+        pod:
+          annotations:
+            secret.reloader.stakater.com/reload: *app
+          # Required sysctls for WireGuard routing
+          securityContext:
+            sysctls:
+              - name: net.ipv4.ip_forward
+                value: "1"
+              - name: net.ipv4.conf.all.src_valid_mark
+                value: "1"
+
+    persistence:
+      # WireGuard configuration, keys, and peer configs
+      config:
+        type: persistentVolumeClaim
+        storageClass: longhorn
+        size: 1Gi
+        accessMode: ReadWriteOnce
+        globalMounts:
+          - path: /etc/wireguard
+
+    service:
+      # Web UI - internal only
+      web:
+        controller: wg-easy
+        ports:
+          http:
+            port: *webPort
+
+      # Metrics endpoint for Prometheus
+      metrics:
+        controller: wg-easy
+        ports:
+          metrics:
+            port: 9586
+            protocol: TCP
+
+      # WireGuard VPN - external LoadBalancer
+      vpn:
+        controller: wg-easy
+        type: LoadBalancer
+        annotations:
+          io.cilium/lb-ipam-ips: "#{ wg_easy_vpn_addr }#"
+        externalTrafficPolicy: Cluster
+        ports:
+          wireguard:
+            port: 51820
+            protocol: UDP

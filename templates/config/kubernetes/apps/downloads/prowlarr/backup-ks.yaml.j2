@@ -2,11 +2,11 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: jackett-backup
+  name: prowlarr-backup
   namespace: flux-system
 spec:
   interval: 10m
-  path: ./kubernetes/apps/downloads/jackett/backup
+  path: ./kubernetes/apps/downloads/prowlarr/backup
   prune: true
   sourceRef:
     kind: GitRepository
@@ -16,4 +16,4 @@ spec:
   dependsOn:
     - name: volsync
       namespace: storage
-    - name: jackett
+    - name: prowlarr

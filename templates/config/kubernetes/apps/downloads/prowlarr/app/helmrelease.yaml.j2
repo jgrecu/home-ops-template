@@ -2,26 +2,29 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: jackett
+  name: prowlarr
 spec:
   chartRef:
     kind: OCIRepository
-    name: jackett
+    name: prowlarr
   interval: 1h
   values:
     controllers:
-      jackett:
+      prowlarr:
         containers:
           app:
             image:
-              repository: lscr.io/linuxserver/jackett
-              # renovate: datasource=docker depName=lscr.io/linuxserver/jackett
-              tag: v0.24.1601-ls374
+              repository: lscr.io/linuxserver/prowlarr
+              # renovate: datasource=docker depName=lscr.io/linuxserver/prowlarr
+              tag: 2.3.6-develop
             env:
               TZ: "Europe/Madrid"
               # LinuxServer: drop to this UID/GID after s6-overlay init
               PUID: "1000"
               PGID: "1000"
+              # Flaresolverr URL for Cloudflare-protected indexers
+              # Configure in Prowlarr: Settings -> Indexers -> Add Indexer Proxy
+              FLARESOLVERR_URL: "http://flaresolverr.downloads.svc.cluster.local:8191"
             probes:
               liveness:
                 enabled: true
@@ -30,7 +33,7 @@ spec:
                   # LinuxServer images start as root then drop; use tcp probe
                   # to avoid auth/redirect issues during health checks
                   tcpSocket:
-                    port: &port 9117
+                    port: &port 9696
                   initialDelaySeconds: 30
                   periodSeconds: 30
               readiness:
@@ -65,11 +68,11 @@ spec:
         annotations:
           gethomepage.dev/enabled: "true"
           gethomepage.dev/group: Downloads
-          gethomepage.dev/name: Jackett
-          gethomepage.dev/icon: jackett.png
-          gethomepage.dev/description: Torrent indexer proxy
-          gethomepage.dev/href: https://jackett.${SECRET_DOMAIN}
-        hostnames: ["jackett.${SECRET_DOMAIN}"]
+          gethomepage.dev/name: Prowlarr
+          gethomepage.dev/icon: prowlarr.png
+          gethomepage.dev/description: Indexer manager for *arr apps
+          gethomepage.dev/href: https://prowlarr.${SECRET_DOMAIN}
+        hostnames: ["prowlarr.${SECRET_DOMAIN}"]
         parentRefs:
           - name: envoy-internal
             namespace: network
@@ -78,4 +81,4 @@ spec:
           - backendRefs:
               - identifier: app
                 port: *port
-    # Internal only — Radarr/Sonarr reach Jackett via ClusterIP
+    # Internal only — Radarr/Sonarr reach Prowlarr via ClusterIP

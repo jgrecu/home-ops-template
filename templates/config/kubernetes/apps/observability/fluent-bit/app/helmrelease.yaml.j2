@@ -55,10 +55,9 @@ spec:
             Match                  kube.*
             Host                   loki-gateway.observability.svc.cluster.local
             Port                   80
-            Labels                 {job="fluent-bit"}
-            Label_Keys             $kubernetes['namespace_name'],$kubernetes['pod_name'],$kubernetes['container_name']
-            line_format            json
+            Labels                 job=fluent-bit
             auto_kubernetes_labels on
+            line_format            json
 
     # Mount the host log directory so the DaemonSet can read node container logs
     volumeMounts:

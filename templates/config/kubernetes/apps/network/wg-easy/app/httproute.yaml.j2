@@ -1,0 +1,24 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: wg-easy
+  namespace: network
+  annotations:
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "WireGuard VPN"
+    gethomepage.dev/group: "Network"
+    gethomepage.dev/description: "VPN server and peer management"
+    gethomepage.dev/icon: "wireguard.png"
+    gethomepage.dev/href: "https://wg.${SECRET_DOMAIN}"
+spec:
+  hostnames:
+    - wg.${SECRET_DOMAIN}
+  parentRefs:
+    - name: envoy-internal
+      namespace: network
+      sectionName: https
+  rules:
+    - backendRefs:
+        - name: wg-easy-web
+          port: 51821

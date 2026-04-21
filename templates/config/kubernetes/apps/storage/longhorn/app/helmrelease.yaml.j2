@@ -34,6 +34,11 @@ spec:
       # Any PVC without an explicit storageClassName will use Longhorn.
       defaultClass: true
       defaultClassReplicaCount: 2
+    metrics:
+      # Enable Prometheus metrics for Grafana dashboards
+      serviceMonitor:
+        enabled: true
+        interval: 30s
     ingress:
       enabled: false
     longhornUI:

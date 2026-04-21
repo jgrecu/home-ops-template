@@ -12,12 +12,12 @@ spec:
     controllers:
       forgejo-runner:
         replicas: 1
-        strategy: RollingUpdate
+        strategy: Recreate
         containers:
           app:
             image:
               repository: code.forgejo.org/forgejo/runner
-              tag: 12.8.2
+              tag: 12.9.0
             command: ["/bin/sh", "-c"]
             args:
               - |
