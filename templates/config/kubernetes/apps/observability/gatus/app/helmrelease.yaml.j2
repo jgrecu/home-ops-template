@@ -60,6 +60,65 @@ spec:
               path: /data/gatus.db
 
             endpoints:
+              # CloudFlare IP Blocking Detection (LaLiga anti-piracy)
+              # Spanish ISPs block ~3,000 CloudFlare IPs during matches
+              - name: CloudFlare Infrastructure
+                group: CloudFlare
+                url: "https://www.cloudflare.com"
+                interval: 2m
+                conditions:
+                  - "[STATUS] == 200"
+                  - "[RESPONSE_TIME] < 2000"
+
+              - name: CloudFlare API
+                group: CloudFlare
+                url: "https://api.cloudflare.com/client/v4/ips"
+                interval: 2m
+                conditions:
+                  - "[STATUS] == 200"
+                  - "[RESPONSE_TIME] < 3000"
+
+              - name: CloudFlare Tunnel
+                group: CloudFlare
+                url: "http://cloudflare-tunnel.network.svc.cluster.local:8080/ready"
+                interval: 2m
+                conditions:
+                  - "[STATUS] == 200"
+
+              - name: Nextcloud (via CloudFlare)
+                group: CloudFlare
+                url: "https://nextcloud.${SECRET_DOMAIN}/status.php"
+                interval: 2m
+                conditions:
+                  - "[STATUS] == 200"
+                  - "[BODY].installed == true"
+                  - "[RESPONSE_TIME] < 5000"
+
+              - name: Forgejo (via CloudFlare)
+                group: CloudFlare
+                url: "https://forgejo.${SECRET_DOMAIN}"
+                interval: 2m
+                conditions:
+                  - "[STATUS] == 200"
+                  - "[RESPONSE_TIME] < 5000"
+
+              - name: Docker Hub
+                group: CloudFlare
+                url: "https://registry-1.docker.io/v2/"
+                interval: 2m
+                conditions:
+                  - "[STATUS] == 401"
+                  - "[RESPONSE_TIME] < 5000"
+
+              - name: CloudFlare Status
+                group: CloudFlare
+                url: "https://www.cloudflarestatus.com"
+                interval: 5m
+                conditions:
+                  - "[STATUS] == 200"
+                  - "[RESPONSE_TIME] < 3000"
+
+              # Observability
               - name: Grafana
                 group: Observability
                 url: "http://grafana.observability.svc.cluster.local"
@@ -67,6 +126,7 @@ spec:
                 conditions:
                   - "[STATUS] == 200"
 
+              # Internal Services
               - name: Homepage
                 group: Internal
                 url: "http://homepage.default.svc.cluster.local:3000"
@@ -74,6 +134,7 @@ spec:
                 conditions:
                   - "[STATUS] == 200"
 
+              # External Services
               - name: Immich
                 group: External
                 url: "https://immich.${SECRET_DOMAIN}"
@@ -101,6 +162,109 @@ spec:
                 group: External
                 url: "https://kavita.${SECRET_DOMAIN}"
                 interval: 5m
+                conditions:
+                  - "[STATUS] == 200"
+
+              # Downloads - Media Management
+              - name: Sonarr
+                group: Downloads
+                url: "http://sonarr.downloads.svc.cluster.local:8989/ping"
+                interval: 5m
+                conditions:
+                  - "[STATUS] == 200"
+
+              - name: Radarr
+                group: Downloads
+                url: "http://radarr.downloads.svc.cluster.local:7878/ping"
+                interval: 5m
+                conditions:
+                  - "[STATUS] == 200"
+
+              - name: Prowlarr
+                group: Downloads
+                url: "http://prowlarr.downloads.svc.cluster.local:9696"
+                interval: 5m
+                conditions:
+                  - "[STATUS] == 200"
+
+              - name: Bazarr
+                group: Downloads
+                url: "http://bazarr.downloads.svc.cluster.local:6767"
+                interval: 5m
+                conditions:
+                  - "[STATUS] == 200"
+
+              - name: Transmission
+                group: Downloads
+                url: "http://transmission-app.downloads.svc.cluster.local:9091"
+                interval: 5m
+                conditions:
+                  - "[STATUS] == 200"
+
+              - name: Autobrr
+                group: Downloads
+                url: "http://autobrr.downloads.svc.cluster.local:7474/api/healthz/liveness"
+                interval: 5m
+                conditions:
+                  - "[STATUS] == 200"
+
+              # Entertainment - Media Consumption
+              - name: Jellyfin
+                group: Entertainment
+                url: "http://jellyfin.entertainment.svc.cluster.local:8096/health"
+                interval: 5m
+                conditions:
+                  - "[STATUS] == 200"
+                  - "[RESPONSE_TIME] < 3000"
+
+              - name: Seerr
+                group: Entertainment
+                url: "http://seerr.entertainment.svc.cluster.local:5055/api/v1/status"
+                interval: 5m
+                conditions:
+                  - "[STATUS] == 200"
+
+              # Home Automation
+              - name: Home Assistant
+                group: Home Automation
+                url: "http://home-assistant.home-automation.svc.cluster.local:8123"
+                interval: 5m
+                conditions:
+                  - "[STATUS] == 200"
+
+              # Infrastructure
+              - name: Pi-hole
+                group: Infrastructure
+                url: "http://pihole-web.network.svc.cluster.local/admin/"
+                interval: 5m
+                conditions:
+                  - "[STATUS] == 200"
+
+              - name: NFS Media Server
+                group: Infrastructure
+                url: "tcp://192.168.1.37:2049"
+                interval: 3m
+                conditions:
+                  - "[CONNECTED] == true"
+
+              - name: Dragonfly Cache
+                group: Infrastructure
+                url: "tcp://dragonfly.database-system.svc.cluster.local:6379"
+                interval: 3m
+                conditions:
+                  - "[CONNECTED] == true"
+
+              - name: Garage S3
+                group: Infrastructure
+                url: "http://garage-s3.storage.svc.cluster.local:3900"
+                interval: 3m
+                conditions:
+                  - "[STATUS] == 403"
+
+              - name: Garage Health
+                group: Infrastructure
+                url: "http://garage-admin.storage.svc.cluster.local:3903/health"
+                interval: 3m
                 conditions:
                   - "[STATUS] == 200"
 

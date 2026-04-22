@@ -9,7 +9,7 @@ releases:
   - name: cilium
     namespace: kube-system
     chart: oci://quay.io/cilium/charts/cilium
-    version: 1.19.2
+    version: 1.19.3
     values: ['./templates/values.yaml.gotmpl']
 
   - name: coredns
@@ -23,7 +23,7 @@ releases:
   - name: spegel
     namespace: kube-system
     chart: oci://ghcr.io/spegel-org/helm-charts/spegel
-    version: 0.6.0
+    version: 0.7.0
     values: ['./templates/values.yaml.gotmpl']
     needs: ['kube-system/coredns']
   #% endif %#
@@ -42,7 +42,7 @@ releases:
   - name: flux-operator
     namespace: flux-system
     chart: oci://ghcr.io/controlplaneio-fluxcd/charts/flux-operator
-    version: 0.46.0
+    version: 0.48.0
     values: ['./templates/values.yaml.gotmpl']
     needs: ['cert-manager/cert-manager']
 
