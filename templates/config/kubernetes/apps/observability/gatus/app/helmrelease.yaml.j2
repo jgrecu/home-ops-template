@@ -62,6 +62,8 @@ spec:
             endpoints:
               # CloudFlare IP Blocking Detection (LaLiga anti-piracy)
               # Spanish ISPs block ~3,000 CloudFlare IPs during matches
+              # "via CloudFlare" checks monitor external access through CloudFlare tunnel (2min interval, strict response times)
+              # Regular checks monitor internal cluster services directly (5min interval, basic health)
               - name: CloudFlare Infrastructure
                 group: CloudFlare
                 url: "https://www.cloudflare.com"
@@ -85,10 +87,18 @@ spec:
                 conditions:
                   - "[STATUS] == 200"
 
+              - name: Immich (via CloudFlare)
+                group: CloudFlare
+                url: "https://immich.${SECRET_DOMAIN}"
+                interval: 3m
+                conditions:
+                  - "[STATUS] == 200"
+                  - "[RESPONSE_TIME] < 5000"
+
               - name: Nextcloud (via CloudFlare)
                 group: CloudFlare
                 url: "https://nextcloud.${SECRET_DOMAIN}/status.php"
-                interval: 2m
+                interval: 3m
                 conditions:
                   - "[STATUS] == 200"
                   - "[BODY].installed == true"
@@ -97,7 +107,15 @@ spec:
               - name: Forgejo (via CloudFlare)
                 group: CloudFlare
                 url: "https://forgejo.${SECRET_DOMAIN}"
-                interval: 2m
+                interval: 3m
+                conditions:
+                  - "[STATUS] == 200"
+                  - "[RESPONSE_TIME] < 5000"
+
+              - name: Kavita (via CloudFlare)
+                group: CloudFlare
+                url: "https://kavita.${SECRET_DOMAIN}"
+                interval: 3m
                 conditions:
                   - "[STATUS] == 200"
                   - "[RESPONSE_TIME] < 5000"
@@ -134,33 +152,34 @@ spec:
                 conditions:
                   - "[STATUS] == 200"
 
-              # External Services
+              # Internal Service Health Checks
+              # These check the services directly within the cluster (bypassing CloudFlare)
               - name: Immich
-                group: External
-                url: "https://immich.${SECRET_DOMAIN}"
+                group: Internal Services
+                url: "http://immich-server.entertainment.svc.cluster.local:2283/api/server/ping"
                 interval: 5m
                 conditions:
                   - "[STATUS] == 200"
-                  - "[RESPONSE_TIME] < 3000"
+                  - "[BODY].res == pong"
 
               - name: Nextcloud
-                group: External
-                url: "https://nextcloud.${SECRET_DOMAIN}/status.php"
+                group: Internal Services
+                url: "http://nextcloud.cloud.svc.cluster.local:80/status.php"
                 interval: 5m
                 conditions:
                   - "[STATUS] == 200"
                   - "[BODY].installed == true"
 
               - name: Forgejo
-                group: External
-                url: "https://forgejo.${SECRET_DOMAIN}"
+                group: Internal Services
+                url: "http://forgejo-http.forgejo.svc.cluster.local:3000"
                 interval: 5m
                 conditions:
                   - "[STATUS] == 200"
 
               - name: Kavita
-                group: External
-                url: "https://kavita.${SECRET_DOMAIN}"
+                group: Internal Services
+                url: "http://kavita.entertainment.svc.cluster.local:5000"
                 interval: 5m
                 conditions:
                   - "[STATUS] == 200"

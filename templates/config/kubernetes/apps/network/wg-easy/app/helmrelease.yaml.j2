@@ -86,6 +86,32 @@ spec:
                 memory: 128Mi
               limits:
                 memory: 256Mi
+
+          # WireGuard Prometheus Exporter
+          # Exports detailed VPN metrics: peer count, bandwidth, handshakes, etc.
+          metrics:
+            image:
+              repository: mindflavor/prometheus-wireguard-exporter
+              tag: 3.6.6
+            args:
+              - -a
+              - "true"
+              - -n
+              - /etc/wireguard/wg0.conf
+              - -i
+              - wg0
+            securityContext:
+              privileged: true
+              runAsUser: 0
+              runAsGroup: 0
+              capabilities:
+                add: ["NET_ADMIN"]
+            resources:
+              requests:
+                cpu: 5m
+                memory: 32Mi
+              limits:
+                memory: 64Mi
         pod:
           annotations:
             secret.reloader.stakater.com/reload: *app
