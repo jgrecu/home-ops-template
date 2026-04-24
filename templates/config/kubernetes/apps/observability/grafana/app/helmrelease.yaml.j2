@@ -87,11 +87,11 @@ spec:
         flux-cluster:
           url: https://raw.githubusercontent.com/fluxcd/flux2-monitoring-example/main/monitoring/configs/dashboards/cluster.json
           datasource: Prometheus
-        # Flux control plane metrics
-        flux-control-plane:
-          gnetId: 16714
-          revision: 1
-          datasource: Prometheus
+        # Flux control plane metrics - loaded via ConfigMap (see dashboard-flux-control-plane.yaml)
+        # flux-control-plane:
+        #   gnetId: 16714
+        #   revision: 1
+        #   datasource: Prometheus
         # Longhorn storage
         longhorn:
           gnetId: 16888

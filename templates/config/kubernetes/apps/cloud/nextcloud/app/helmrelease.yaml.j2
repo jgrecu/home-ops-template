@@ -68,8 +68,9 @@ spec:
             resources:
               requests:
                 cpu: 50m
-              limits:
                 memory: 1Gi
+              limits:
+                memory: 2Gi
 
       # Nextcloud requires background jobs for notifications, sharing cleanup,
       # previews, and other housekeeping. This cronjob runs every 5 minutes.

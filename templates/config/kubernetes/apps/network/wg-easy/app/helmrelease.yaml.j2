@@ -54,7 +54,8 @@ spec:
               INIT_PORT: "51820"
               INIT_DNS: "#{ pihole_dns_addr }#"
               INIT_IPV4_CIDR: "10.8.0.0/24"
-              INIT_ALLOWED_IPS: "192.168.1.0/24, 10.42.0.0/16, 10.43.0.0/16"
+              # Route all traffic through VPN (disable split-tunnel)
+              INIT_ALLOWED_IPS: "0.0.0.0/0"
             probes:
               liveness:
                 enabled: true
@@ -86,6 +87,88 @@ spec:
                 memory: 128Mi
               limits:
                 memory: 256Mi
+
+          # WireGuard Interface Manager
+          # Monitors and manages wg0 interface since wg-quick fails on Talos (nftables vs iptables)
+          # Continuously watches for config changes and reapplies interface settings
+          wg-manager:
+            image:
+              repository: alpine
+              tag: 3.23
+            command:
+              - /bin/sh
+              - -c
+              - |
+                # Install required tools
+                apk add --no-cache wireguard-tools iproute2
+
+                echo "WireGuard interface manager starting..."
+
+                # Function to bring up wg0 interface
+                bring_up_interface() {
+                  echo "Waiting for wg0.conf to be created..."
+                  while [ ! -f /etc/wireguard/wg0.conf ]; do
+                    sleep 2
+                  done
+
+                  echo "Config file found, bringing up interface..."
+
+                  # Remove wg-quick specific directives and create clean config
+                  grep -v "^Address\|^MTU\|^PreUp\|^PostUp\|^PreDown\|^PostDown" /etc/wireguard/wg0.conf > /tmp/wg0-stripped.conf
+
+                  # Create WireGuard interface if it doesn't exist
+                  if ! ip link show wg0 >/dev/null 2>&1; then
+                    ip link add dev wg0 type wireguard
+                  fi
+
+                  # Apply WireGuard configuration
+                  wg setconf wg0 /tmp/wg0-stripped.conf
+
+                  # Configure interface addresses
+                  ip address flush dev wg0 2>/dev/null || true
+                  ip address add 10.8.0.1/24 dev wg0
+                  ip address add fdcc:ad94:bacf:61a4::cafe:1/112 dev wg0
+
+                  # Set MTU and bring interface up
+                  ip link set mtu 1420 up dev wg0
+
+                  echo "WireGuard interface wg0 is UP"
+                }
+
+                # Initial interface setup
+                bring_up_interface
+
+                # Monitor loop - watch for config changes or interface going down
+                last_hash=$(md5sum /etc/wireguard/wg0.conf 2>/dev/null | awk '{print $1}')
+
+                while true; do
+                  sleep 10
+
+                  # Check if interface is still up
+                  if ! ip link show wg0 up >/dev/null 2>&1; then
+                    echo "Interface wg0 is down, bringing it back up..."
+                    bring_up_interface
+                    continue
+                  fi
+
+                  # Check if config file has changed (new peer added/removed)
+                  if [ -f /etc/wireguard/wg0.conf ]; then
+                    current_hash=$(md5sum /etc/wireguard/wg0.conf | awk '{print $1}')
+                    if [ "$current_hash" != "$last_hash" ]; then
+                      echo "Config file changed, reloading interface..."
+                      bring_up_interface
+                      last_hash=$current_hash
+                    fi
+                  fi
+                done
+            securityContext:
+              privileged: true
+            resources:
+              requests:
+                cpu: 5m
+                memory: 32Mi
+              limits:
+                memory: 64Mi
 
           # WireGuard Prometheus Exporter
           # Exports detailed VPN metrics: peer count, bandwidth, handshakes, etc.

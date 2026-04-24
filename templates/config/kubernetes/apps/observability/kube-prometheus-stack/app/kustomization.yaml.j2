@@ -4,5 +4,7 @@ kind: Kustomization
 resources:
   - ./ocirepository.yaml
   - ./helmrelease.yaml
+  - ./kube-state-metrics-config.yaml
+  - ./kube-state-metrics-rbac.yaml
   - ./prometheus-httproute.yaml
   - ./alertmanager-httproute.yaml

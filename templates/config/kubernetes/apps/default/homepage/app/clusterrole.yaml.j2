@@ -9,6 +9,11 @@ rules:
     resources: ["httproutes"]
     verbs: ["get", "list"]
 
+  # Read Ingress resources for auto-discovery
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list"]
+
   # Read pods for widget metrics (CPU, memory)
   - apiGroups: [""]
     resources: ["pods", "namespaces"]

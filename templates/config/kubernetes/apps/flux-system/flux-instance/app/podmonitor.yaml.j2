@@ -1,0 +1,26 @@
+---
+# PodMonitor for Flux Instance controller metrics
+# Scrapes metrics from all Flux controllers:
+# - source-controller: GitRepository and HelmRepository reconciliation metrics
+# - kustomize-controller: Kustomization reconciliation metrics
+# - helm-controller: HelmRelease reconciliation metrics
+# - notification-controller: Alert and notification delivery metrics
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: flux-controllers
+  namespace: flux-system
+  labels:
+    app.kubernetes.io/name: flux
+spec:
+  jobLabel: app.kubernetes.io/component
+  namespaceSelector:
+    matchNames:
+      - flux-system
+  podMetricsEndpoints:
+    - port: http-prom
+      interval: 30s
+      path: /metrics
+  selector:
+    matchLabels:
+      app.kubernetes.io/part-of: flux
