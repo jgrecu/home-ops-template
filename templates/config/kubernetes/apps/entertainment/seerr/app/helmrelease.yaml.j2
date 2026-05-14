@@ -1,0 +1,83 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: seerr
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: seerr
+  interval: 1h
+  values:
+    controllers:
+      seerr:
+        containers:
+          app:
+            image:
+              repository: ghcr.io/hotio/seerr
+              # renovate: datasource=docker depName=ghcr.io/hotio/seerr
+              tag: release-v3
+            env:
+              TZ: "Europe/Madrid"
+              PUID: "1000"
+              PGID: "1000"
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/v1/status
+                    port: &port 5055
+                  initialDelaySeconds: 30
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 5
+              readiness: *probes
+            resources:
+              requests:
+                cpu: 15m
+                memory: 256Mi
+              limits:
+                memory: 2Gi
+
+    defaultPodOptions:
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: "Always"
+
+    persistence:
+      # Seerr config + SQLite database — stores request history,
+      # user settings, and integration configurations
+      config:
+        type: persistentVolumeClaim
+        storageClass: longhorn
+        size: 2Gi
+        accessMode: ReadWriteOnce
+        globalMounts:
+          - path: /app/config
+
+    service:
+      app:
+        ports:
+          http:
+            port: *port
+
+    route:
+      app:
+        hostnames: ["seerr.${SECRET_DOMAIN}"]
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: "Seerr"
+          gethomepage.dev/group: "Entertainment"
+          gethomepage.dev/description: "Media request management"
+          gethomepage.dev/icon: "overseerr.png"
+          gethomepage.dev/href: "https://seerr.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: *port

@@ -1,0 +1,23 @@
+---
+# Service for Dragonfly metrics endpoint
+# Exposes the admin port (9999) for Prometheus scraping
+# Separate from the main Redis service (6379)
+apiVersion: v1
+kind: Service
+metadata:
+  name: dragonfly-metrics
+  namespace: database-system
+  labels:
+    app.kubernetes.io/name: dragonfly
+    app.kubernetes.io/component: dragonfly
+spec:
+  selector:
+    app: dragonfly
+    app.kubernetes.io/name: dragonfly
+    role: master
+  ports:
+    - name: admin
+      port: 9999
+      targetPort: 9999
+      protocol: TCP
+  type: ClusterIP

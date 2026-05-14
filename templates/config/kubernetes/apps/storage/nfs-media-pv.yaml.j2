@@ -1,0 +1,40 @@
+---
+# Static PV for downloads namespace (Radarr, Sonarr)
+# Points to /videos on NAS
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nfs-media-videos-downloads
+spec:
+  capacity:
+    storage: 10Ti
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  mountOptions:
+    - nfsvers=4.1
+    - hard
+    - noatime
+  nfs:
+    server: "#{ nfs_server_addr }#"
+    path: /videos
+---
+# Static PV for entertainment namespace (Jellyfin)
+# Points to /videos on NAS
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nfs-media-videos-entertainment
+spec:
+  capacity:
+    storage: 10Ti
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  mountOptions:
+    - nfsvers=4.1
+    - hard
+    - noatime
+  nfs:
+    server: "#{ nfs_server_addr }#"
+    path: /videos

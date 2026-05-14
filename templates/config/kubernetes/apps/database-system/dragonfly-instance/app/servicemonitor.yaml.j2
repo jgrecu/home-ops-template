@@ -1,0 +1,26 @@
+---
+# ServiceMonitor for Dragonfly metrics
+# Scrapes Prometheus metrics from Dragonfly admin port:
+# - dragonfly_version: Dragonfly version info
+# - dragonfly_connected_clients: Number of connected clients
+# - dragonfly_uptime_in_seconds: Instance uptime
+# - dragonfly_memory_used_bytes: Memory usage
+# - dragonfly_commands_total: Total commands processed
+# - dragonfly_blocked_clients: Number of blocked clients
+# - dragonfly_keys_total: Total number of keys in database
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: dragonfly
+  namespace: database-system
+  labels:
+    app.kubernetes.io/name: dragonfly
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: dragonfly
+      app.kubernetes.io/component: dragonfly
+  endpoints:
+    - port: admin
+      interval: 30s
+      path: /metrics

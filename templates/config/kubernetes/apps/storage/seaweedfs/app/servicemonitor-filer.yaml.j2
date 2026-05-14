@@ -1,0 +1,23 @@
+---
+# ServiceMonitor for SeaweedFS Filer metrics
+# Scrapes metrics from filer nodes (S3 API gateway):
+# - seaweedfs_filer_request_total: Total requests by operation
+# - seaweedfs_filer_request_duration_seconds: Request latency
+# - seaweedfs_filer_store_size_bytes: Metadata store size
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: seaweedfs-filer
+  namespace: storage
+  labels:
+    app.kubernetes.io/name: seaweedfs
+    app.kubernetes.io/component: filer
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: seaweedfs
+      app.kubernetes.io/component: filer
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics

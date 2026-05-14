@@ -1,0 +1,18 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: bazarr
+  namespace: downloads
+  labels:
+    app.kubernetes.io/name: bazarr
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: bazarr
+      app.kubernetes.io/instance: bazarr
+  endpoints:
+    - port: metrics
+      interval: 60s
+      path: /metrics
+      scrapeTimeout: 30s

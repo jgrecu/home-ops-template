@@ -1,0 +1,136 @@
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: nfs
+  annotations:
+    # Longhorn is the default class. NFS is opt-in — reference it
+    # explicitly with storageClassName: nfs in your PVC.
+    storageclass.kubernetes.io/is-default-class: "false"
+provisioner: nfs.csi.k8s.io
+parameters:
+  server: "#{ nfs_server_addr }#"
+  share: "#{ nfs_server_path }#"
+  # Makes subdirectories per PVC so volumes don't share the same root
+  subDir: $${pvc.metadata.namespace}/$${pvc.metadata.name}
+  mountPermissions: "0755"
+reclaimPolicy: Retain
+volumeBindingMode: Immediate
+mountOptions:
+  - nfsvers=4.1
+  - hard
+  - noatime
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: nfs-media
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "false"
+provisioner: nfs.csi.k8s.io
+parameters:
+  server: "#{ nfs_server_addr }#"
+  share: "#{ nfs_media_path }#"
+  # No subDir — Radarr, Sonarr, and Jellyfin all mount the same share root
+  # so they share a consistent view of the media library.
+  # Downloads are kept on a local Longhorn PVC (fast SSD), not here.
+  # Radarr/Sonarr copy-then-delete from Longhorn into this share on import.
+  # Your NAS share should look like:
+  #   /videos/
+  #     Films/      ← Radarr imports here
+  #     Series/     ← Sonarr imports here
+  #     music/      (optional)
+  mountPermissions: "0755"
+reclaimPolicy: Retain
+volumeBindingMode: Immediate
+mountOptions:
+  - nfsvers=4.1
+  - hard
+  - noatime
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: nfs-photos
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "false"
+provisioner: nfs.csi.k8s.io
+parameters:
+  server: "#{ nfs_server_addr }#"
+  share: "#{ nfs_photos_path }#"
+  # No subDir — Immich manages its own directory structure within the share.
+  # Originals, thumbnails, and encoded videos all live under this mount.
+  # Your NAS share should look like (Immich creates these automatically):
+  #   /photos/
+  #     library/     ← uploaded originals
+  #     thumbs/      ← generated thumbnails
+  #     encoded/     ← transcoded videos
+  #     upload/      ← in-progress uploads
+  mountPermissions: "0755"
+reclaimPolicy: Retain
+volumeBindingMode: Immediate
+mountOptions:
+  - nfsvers=4.1
+  - hard
+  - noatime
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: nfs-books
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "false"
+provisioner: nfs.csi.k8s.io
+parameters:
+  server: "#{ nfs_server_addr }#"
+  share: "#{ nfs_books_path }#"
+  # No subDir — Kavita reads the library root directly and manages
+  # its own folder structure for series/volumes.
+  mountPermissions: "0755"
+reclaimPolicy: Retain
+volumeBindingMode: Immediate
+mountOptions:
+  - nfsvers=4.1
+  - hard
+  - noatime
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: nfs-nextcloud
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "false"
+provisioner: nfs.csi.k8s.io
+parameters:
+  server: "#{ nfs_server_addr }#"
+  share: "#{ nfs_nextcloud_path }#"
+  # No subDir — mounts the share root directly so Nextcloud sees any
+  # existing data already on the NAS. Nextcloud manages its own internal
+  # directory structure under this mount point.
+  mountPermissions: "0755"
+reclaimPolicy: Retain
+volumeBindingMode: Immediate
+mountOptions:
+  - nfsvers=4.1
+  - hard
+  - noatime
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: nfs-seaweedfs
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "false"
+provisioner: nfs.csi.k8s.io
+parameters:
+  server: "#{ nfs_server_addr }#"
+  share: "#{ nfs_seaweedfs_path }#"
+  # No subDir — SeaweedFS volume server manages its own internal structure.
+  # reclaimPolicy: Retain ensures deleting the PVC never removes NAS files.
+  mountPermissions: "0755"
+reclaimPolicy: Retain
+volumeBindingMode: Immediate
+mountOptions:
+  - nfsvers=4.1
+  - hard
+  - noatime

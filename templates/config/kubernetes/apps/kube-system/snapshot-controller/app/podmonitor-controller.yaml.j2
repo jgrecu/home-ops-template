@@ -1,0 +1,27 @@
+---
+# PodMonitor for snapshot-controller metrics
+# Scrapes metrics from the CSI snapshot controller:
+# - snapshot_controller_operation_total_seconds: Snapshot operation latency
+# - snapshot_controller_operations_total: Total snapshot operations by status
+# - snapshot_controller_operations_in_flight: Current in-flight operations
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: snapshot-controller
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: snapshot-controller
+    app.kubernetes.io/component: controller
+spec:
+  jobLabel: app.kubernetes.io/name
+  namespaceSelector:
+    matchNames:
+      - kube-system
+  podMetricsEndpoints:
+    - port: http
+      interval: 30s
+      path: /metrics
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: snapshot-controller
+      app.kubernetes.io/instance: snapshot-controller

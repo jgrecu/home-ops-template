@@ -1,0 +1,20 @@
+---
+# Static PV for nextcloud namespace
+# Points to /nextcloud on NAS for user data
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nfs-nextcloud-data
+spec:
+  capacity:
+    storage: 1Ti
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  mountOptions:
+    - nfsvers=4.1
+    - hard
+    - noatime
+  nfs:
+    server: "#{ nfs_server_addr }#"
+    path: "#{ nfs_nextcloud_path }#"

@@ -1,0 +1,105 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: prowlarr
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: prowlarr
+  interval: 1h
+  values:
+    controllers:
+      prowlarr:
+        containers:
+          app:
+            image:
+              repository: lscr.io/linuxserver/prowlarr
+              # renovate: datasource=docker depName=lscr.io/linuxserver/prowlarr
+              tag: 2.3.7-develop
+            env:
+              TZ: "Europe/Madrid"
+              # LinuxServer: drop to this UID/GID after s6-overlay init
+              PUID: "1000"
+              PGID: "1000"
+              # Flaresolverr URL for Cloudflare-protected indexers
+              # Configure in Prowlarr: Settings -> Indexers -> Add Indexer Proxy
+              FLARESOLVERR_URL: "http://flaresolverr.downloads.svc.cluster.local:8191"
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  # LinuxServer images start as root then drop; use tcp probe
+                  # to avoid auth/redirect issues during health checks
+                  tcpSocket:
+                    port: &port 9696
+                  initialDelaySeconds: 30
+                  periodSeconds: 30
+              readiness:
+                enabled: false
+            # LinuxServer images use s6-overlay which starts as root and drops
+            # to PUID/PGID. Do not drop all capabilities or the init will fail.
+            securityContext:
+              allowPrivilegeEscalation: false
+            resources:
+              requests:
+                cpu: 10m
+                memory: 128Mi
+              limits:
+                memory: 512Mi
+          exportarr:
+            image:
+              repository: ghcr.io/onedr0p/exportarr
+              tag: v2.3.0
+            args:
+              - prowlarr
+            env:
+              PORT: "9707"
+              URL: "http://localhost:9696"
+              APIKEY: "#{ prowlarr_api_key }#"
+              ENABLE_ADDITIONAL_METRICS: "true"
+              PROWLARR_BACKFILL: "true"  # Enable historical data
+            resources:
+              requests:
+                cpu: 20m  # Higher for Prowlarr
+                memory: 128Mi
+              limits:
+                memory: 256Mi
+
+    persistence:
+      config:
+        type: persistentVolumeClaim
+        storageClass: longhorn
+        size: 2Gi
+        accessMode: ReadWriteOnce
+        globalMounts:
+          - path: /config
+
+    service:
+      app:
+        ports:
+          http:
+            port: *port
+          metrics:
+            port: 9707
+
+    route:
+      app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: Downloads
+          gethomepage.dev/name: Prowlarr
+          gethomepage.dev/icon: prowlarr.png
+          gethomepage.dev/description: Indexer manager for *arr apps
+          gethomepage.dev/href: https://prowlarr.${SECRET_DOMAIN}
+        hostnames: ["prowlarr.${SECRET_DOMAIN}"]
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: *port
+    # Internal only — Radarr/Sonarr reach Prowlarr via ClusterIP

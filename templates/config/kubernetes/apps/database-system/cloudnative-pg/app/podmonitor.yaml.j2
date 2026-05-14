@@ -1,0 +1,17 @@
+---
+# PodMonitor for CloudNativePG cluster instances
+# Scrapes metrics from all CNPG PostgreSQL pods across all namespaces
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: cloudnative-pg-clusters
+  namespace: database-system
+spec:
+  selector:
+    matchLabels:
+      cnpg.io/podRole: instance
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+  namespaceSelector:
+    any: true

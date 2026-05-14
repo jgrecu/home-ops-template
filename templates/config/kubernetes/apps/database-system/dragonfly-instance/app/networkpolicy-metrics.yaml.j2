@@ -1,0 +1,32 @@
+---
+# NetworkPolicy to allow Prometheus scraping of Dragonfly metrics
+# The Dragonfly operator creates a NetworkPolicy that only allows:
+# - Port 6379 (Redis) from anywhere
+# - Port 9999 (metrics) only from operator and other Dragonfly pods
+#
+# This additional policy allows Prometheus (observability namespace) to scrape port 9999
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dragonfly-allow-prometheus
+  namespace: database-system
+spec:
+  podSelector:
+    matchLabels:
+      app: dragonfly
+      app.kubernetes.io/name: dragonfly
+      app.kubernetes.io/part-of: dragonfly
+  policyTypes:
+    - Ingress
+  ingress:
+    # Allow Prometheus to scrape metrics on port 9999
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - protocol: TCP
+          port: 9999

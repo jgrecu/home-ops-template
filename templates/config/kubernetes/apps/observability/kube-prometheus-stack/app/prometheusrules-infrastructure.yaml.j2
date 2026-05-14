@@ -1,0 +1,101 @@
+---
+# PrometheusRule for infrastructure monitoring alerts
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: infrastructure-alerts
+  namespace: observability
+  labels:
+    prometheus: kube-prometheus-stack
+    role: alert-rules
+spec:
+  groups:
+    - name: storage
+      interval: 1m
+      rules:
+        - alert: LonghornVolumeHighUsage
+          expr: |
+            (longhorn_volume_actual_size_bytes / longhorn_volume_capacity_bytes) > 0.85
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Longhorn volume {{ $labels.volume }} is {{ $value | humanizePercentage }} full"
+            description: "Volume {{ $labels.volume }} has exceeded 85% capacity"
+
+        - alert: LonghornNodeStorageLow
+          expr: |
+            (longhorn_node_storage_usage_bytes / longhorn_node_storage_capacity_bytes) > 0.90
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Longhorn node {{ $labels.node }} storage is {{ $value | humanizePercentage }} full"
+            description: "Node {{ $labels.node }} storage has exceeded 90% capacity"
+
+    - name: certificates
+      interval: 1m
+      rules:
+        # Alert when certificate expires in less than 48 hours (2 days)
+        # This accounts for shortlived certificates (6.6 day duration)
+        # and provides sufficient warning before expiry
+        - alert: CertificateExpiringIn48Hours
+          expr: |
+            (certmanager_certificate_expiration_timestamp_seconds - time()) < (48 * 3600)
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: "Certificate {{ $labels.name }} expires in less than 48 hours"
+            description: "Certificate {{ $labels.name }} in namespace {{ $labels.exported_namespace }} will expire in {{ $value | humanizeDuration }}. This may indicate a renewal failure."
+
+        # Alert when certificate is not ready for 15 minutes
+        # Increased from 10m to account for DNS-01 propagation delays (typically 8-12 minutes)
+        # Prevents false alarms during normal certificate renewal
+        - alert: CertificateNotReady
+          expr: |
+            certmanager_certificate_ready_status{condition="True"} == 0
+          for: 15m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Certificate {{ $labels.name }} is not ready"
+            description: "Certificate {{ $labels.name }} in namespace {{ $labels.exported_namespace }} has been in not-ready state for 15 minutes. Check cert-manager logs for errors."
+
+        # Alert when certificate renewal is failing repeatedly
+        # This catches cases where DNS challenges fail multiple times
+        - alert: CertificateRenewalFailure
+          expr: |
+            increase(certmanager_certificate_renewal_timestamp_seconds{success="false"}[1h]) > 2
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Certificate {{ $labels.name }} renewal failing"
+            description: "Certificate {{ $labels.name }} in namespace {{ $labels.exported_namespace }} has failed renewal {{ $value }} times in the last hour"
+
+    - name: flux
+      interval: 1m
+      rules:
+        - alert: FluxReconciliationFailure
+          expr: |
+            increase(gotk_reconcile_condition{type="Ready",status="False"}[5m]) > 0
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Flux {{ $labels.kind }} {{ $labels.name }} reconciliation failing"
+            description: "{{ $labels.kind }}/{{ $labels.name }} in namespace {{ $labels.namespace }} has been failing reconciliation for 10 minutes"
+
+    - name: backup
+      interval: 5m
+      rules:
+        - alert: VolsyncBackupFailure
+          expr: |
+            volsync_volume_out_of_sync > 0
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: "Volsync backup for {{ $labels.obj_name }} is out of sync"
+            description: "Backup for {{ $labels.obj_name }} in namespace {{ $labels.obj_namespace }} has been out of sync for 1 hour"

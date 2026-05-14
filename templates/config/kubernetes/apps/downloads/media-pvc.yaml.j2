@@ -1,0 +1,15 @@
+---
+# PVC for downloads namespace (Radarr, Sonarr)
+# Binds to static PV pointing to /videos on NAS
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: media-library
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""  # Empty to use static PV
+  volumeName: nfs-media-videos-downloads  # Bind to downloads PV
+  resources:
+    requests:
+      storage: 10Ti

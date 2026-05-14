@@ -1,0 +1,24 @@
+---
+# ServiceMonitor for WireGuard metrics
+# Scrapes detailed VPN metrics from prometheus-wireguard-exporter:
+# - wireguard_peer_info: Peer metadata (public key, endpoint, etc.)
+# - wireguard_peer_last_handshake_seconds: Time since last handshake
+# - wireguard_peer_receive_bytes_total: Total bytes received from peer
+# - wireguard_peer_transmit_bytes_total: Total bytes sent to peer
+# - wireguard_interface_info: Interface metadata
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: wg-easy
+  namespace: network
+  labels:
+    app.kubernetes.io/name: wg-easy
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: wg-easy
+      app.kubernetes.io/service: wg-easy-metrics
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics

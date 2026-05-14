@@ -1,0 +1,56 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: goldilocks
+spec:
+  interval: 1h
+  chart:
+    spec:
+      chart: goldilocks
+      version: 10.3.0
+      sourceRef:
+        kind: HelmRepository
+        name: fairwinds
+        namespace: flux-system
+  values:
+    # Goldilocks dashboard for viewing VPA recommendations
+    dashboard:
+      enabled: true
+      replicaCount: 1
+      resources:
+        requests:
+          cpu: 25m
+          memory: 64Mi
+        limits:
+          memory: 256Mi
+      service:
+        type: ClusterIP
+        port: 80
+
+    # Controller that creates VPA objects automatically
+    controller:
+      enabled: true
+      resources:
+        requests:
+          cpu: 25m
+          memory: 64Mi
+        limits:
+          memory: 256Mi
+
+    # Enable metrics for Prometheus
+    metrics:
+      enabled: true
+      serviceMonitor:
+        enabled: true
+        interval: 30s
+
+    # HTTPRoute for accessing the dashboard
+    route:
+      main:
+        enabled: true
+        hostnames: ["goldilocks.#{SECRET_DOMAIN}#"]
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https

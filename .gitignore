@@ -1,0 +1,38 @@
+# Secrets
+*.pub
+*.key
+*.decrypted~*.yaml
+/age.key
+/cloudflare-tunnel.json
+/github-deploy.key
+/github-deploy.key.pub
+/github-push-token.txt
+# Template config files
+/cluster.yaml
+/nodes.yaml
+# Kubernetes
+kubeconfig
+talosconfig
+# Misc.
+.private/
+.task/
+.venv/
+.DS_Store
+**/.DS_Store
+Thumbs.db
+*.tar.gz
+*.dump
+*.sql
+*.bak
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.tox/
+venv/
+env/
+.venv/

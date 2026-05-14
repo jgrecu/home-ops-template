@@ -1,0 +1,113 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: transmission
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: transmission
+  interval: 1h
+  values:
+    controllers:
+      transmission:
+        # IMPORTANT: Transmission, Radarr, and Sonarr all share the media-downloads
+        # PVC, which is ReadWriteOnce. They must all land on the same node.
+        # Label your chosen node before deploying:
+        #   kubectl label node <node-name> media-node=true
+        pod:
+          nodeSelector:
+            media-node: "true"
+        containers:
+          app:
+            image:
+              repository: lscr.io/linuxserver/transmission
+              # renovate: datasource=docker depName=lscr.io/linuxserver/transmission
+              tag: 4.1.1
+            env:
+              TZ: "Europe/Madrid"
+              # LinuxServer: drop to this UID/GID after s6-overlay init
+              PUID: "1000"
+              PGID: "1000"
+              # Transmission peer port — open this on your router for better
+              # connectivity. Must match the service port below.
+              PEERPORT: "51413"
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: &port 9091
+                  initialDelaySeconds: 30
+                  periodSeconds: 30
+              readiness:
+                enabled: false
+            # LinuxServer images use s6-overlay which starts as root and drops
+            # to PUID/PGID. Do not drop all capabilities or the init will fail.
+            securityContext:
+              allowPrivilegeEscalation: false
+            resources:
+              requests:
+                cpu: 10m
+                memory: 128Mi
+              limits:
+                memory: 512Mi
+
+    persistence:
+      config:
+        type: persistentVolumeClaim
+        storageClass: longhorn
+        size: 1Gi
+        accessMode: ReadWriteOnce
+        globalMounts:
+          - path: /config
+
+      # Shared download staging area. Radarr/Sonarr watch this path and move
+      # completed downloads to NFS. All three apps must be on the same node
+      # because this PVC is ReadWriteOnce.
+      downloads:
+        type: persistentVolumeClaim
+        existingClaim: media-downloads
+        globalMounts:
+          - path: /downloads
+
+    service:
+      app:
+        ports:
+          http:
+            port: *port
+      # Expose the peer port for incoming torrent connections.
+      # Forward this port on your router to your cluster's gateway IP.
+      peer:
+        controller: transmission
+        type: LoadBalancer
+        annotations:
+          io.cilium/lb-ipam-ips: "#{ transmission_peer_addr }#"
+        ports:
+          peer-tcp:
+            port: 51413
+            protocol: TCP
+          peer-udp:
+            port: 51413
+            protocol: UDP
+
+    route:
+      app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: Downloads
+          gethomepage.dev/name: Transmission
+          gethomepage.dev/icon: transmission.png
+          gethomepage.dev/description: BitTorrent client
+          gethomepage.dev/href: https://transmission.${SECRET_DOMAIN}
+        hostnames: ["transmission.${SECRET_DOMAIN}"]
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: 9091
+    # Internal only — web UI is available within the cluster only

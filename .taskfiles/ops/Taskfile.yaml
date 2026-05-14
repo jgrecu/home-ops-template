@@ -1,0 +1,153 @@
+---
+version: '3'
+
+tasks:
+
+  status:
+    desc: Show overall cluster health status
+    summary: |
+      Display comprehensive cluster health including:
+      - Flux reconciliation status
+      - Failed pods across all namespaces
+      - PVC usage and capacity
+      - Certificate expiration warnings
+      - Recent events (last 10)
+    cmd: |
+      echo "=== Flux Status ==="
+      FLUX_ISSUES=$(flux get kustomizations -A | grep -v "True.*Applied" | grep -v "NAME.*REVISION" || true)
+      if [ -z "$FLUX_ISSUES" ]; then
+        echo "All kustomizations healthy (Applied & Ready)"
+      else
+        echo "$FLUX_ISSUES"
+      fi
+      echo ""
+      echo "=== Failed/CrashLooping Pods ==="
+      kubectl get pods -A | grep -v "Running\|Completed" | grep -v "NAME" || echo "All pods running or completed"
+      echo ""
+      echo "=== PVC Usage ==="
+      kubectl get pvc -A -o json | jq -r '.items[] | "\(.metadata.namespace)/\(.metadata.name): \(.status.capacity.storage)"'
+      echo ""
+      echo "=== Recent Warning Events ==="
+      kubectl get events -A --sort-by='.lastTimestamp' | grep -i "warning\|error" | tail -10 || echo "No recent warnings or errors"
+    preconditions:
+      - test -f {{.KUBECONFIG}}
+      - which flux kubectl jq
+
+  logs:
+    desc: Get logs for an application (usage - task ops:logs -- <app> [namespace])
+    summary: |
+      Retrieve logs from an application pod.
+
+      Examples:
+        task ops:logs -- radarr
+        task ops:logs -- immich entertainment
+        task ops:logs -- cert-manager cert-manager
+    cmd: |
+      APP="{{index .CLI_ARGS 0}}"
+      NS="{{index .CLI_ARGS 1}}"
+      if [ -z "$NS" ]; then
+        NS=$(kubectl get pods -A -l app.kubernetes.io/name=$APP -o jsonpath='{.items[0].metadata.namespace}')
+      fi
+      if [ -z "$NS" ]; then
+        echo "Error: Could not find app '$APP'"
+        exit 1
+      fi
+      POD=$(kubectl get pods -n $NS -l app.kubernetes.io/name=$APP -o jsonpath='{.items[0].metadata.name}')
+      echo "Fetching logs from $NS/$POD..."
+      kubectl logs -n $NS $POD --tail=100 -f
+    preconditions:
+      - test -f {{.KUBECONFIG}}
+      - sh: test -n "{{.CLI_ARGS}}"
+        msg: "Usage: task ops:logs -- <app> [namespace]"
+
+  pod-errors:
+    desc: Show pods with errors or in CrashLoopBackOff
+    cmd: |
+      echo "=== Pods Not Running ==="
+      kubectl get pods -A | grep -v "Running\|Completed" | grep -v "NAME" || echo "All pods running or completed"
+      echo ""
+      echo "=== Recent Pod Events ==="
+      kubectl get events -A --sort-by='.lastTimestamp' --field-selector type=Warning | tail -20 || echo "No recent warning events"
+    preconditions:
+      - test -f {{.KUBECONFIG}}
+
+  restart:
+    desc: Restart an application deployment (usage - task ops:restart -- <app> [namespace])
+    summary: |
+      Restart a deployment by deleting its pods.
+
+      Examples:
+        task ops:restart -- radarr
+        task ops:restart -- immich entertainment
+    cmd: |
+      APP="{{index .CLI_ARGS 0}}"
+      NS="{{index .CLI_ARGS 1}}"
+      if [ -z "$NS" ]; then
+        NS=$(kubectl get pods -A -l app.kubernetes.io/name=$APP -o jsonpath='{.items[0].metadata.namespace}')
+      fi
+      if [ -z "$NS" ]; then
+        echo "Error: Could not find app '$APP'"
+        exit 1
+      fi
+      echo "Restarting $APP in namespace $NS..."
+      kubectl rollout restart deployment -n $NS -l app.kubernetes.io/name=$APP
+    preconditions:
+      - test -f {{.KUBECONFIG}}
+      - sh: test -n "{{.CLI_ARGS}}"
+        msg: "Usage: task ops:restart -- <app> [namespace]"
+
+  describe:
+    desc: Describe a resource (usage - task ops:describe -- <type> <name> [namespace])
+    summary: |
+      Get detailed information about a Kubernetes resource.
+
+      Examples:
+        task ops:describe -- pod radarr-abc123 downloads
+        task ops:describe -- pvc immich-data entertainment
+        task ops:describe -- svc radarr downloads
+    cmd: |
+      TYPE="{{index .CLI_ARGS 0}}"
+      NAME="{{index .CLI_ARGS 1}}"
+      NS="{{index .CLI_ARGS 2}}"
+      if [ -z "$NS" ]; then
+        kubectl describe $TYPE $NAME
+      else
+        kubectl describe $TYPE -n $NS $NAME
+      fi
+    preconditions:
+      - test -f {{.KUBECONFIG}}
+      - sh: test -n "{{index .CLI_ARGS 1}}"
+        msg: "Usage: task ops:describe -- <type> <name> [namespace]"
+
+  monitoring-status:
+    desc: Verify Prometheus monitoring coverage and health
+    cmd: |
+      echo "=== ServiceMonitors & PodMonitors ==="
+      kubectl get servicemonitors,podmonitors -A | wc -l
+      echo ""
+      echo "=== Prometheus Targets Health ==="
+      kubectl port-forward -n observability svc/kube-prometheus-stack-prometheus 9090:9090 >/dev/null 2>&1 &
+      PF_PID=$!
+      sleep 5
+      if curl -s http://localhost:9090/api/v1/targets >/dev/null 2>&1; then
+        curl -s http://localhost:9090/api/v1/targets | jq -r '
+          .data.activeTargets |
+          group_by(.health) |
+          map({health: .[0].health, count: length}) |
+          .[] |
+          "\(.health): \(.count)"
+        '
+      else
+        echo "Unable to connect to Prometheus (port-forward may have failed)"
+      fi
+      kill $PF_PID 2>/dev/null || true
+      echo ""
+      echo "=== Alerting Rules Loaded ==="
+      kubectl get prometheusrules -A | wc -l
+      echo ""
+      echo "=== Gatus Health Checks ==="
+      GATUS_STATUS=$(kubectl get pods -n observability -l app.kubernetes.io/name=gatus -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "Not Found")
+      echo "$GATUS_STATUS"
+    preconditions:
+      - test -f {{.KUBECONFIG}}
+      - which jq curl

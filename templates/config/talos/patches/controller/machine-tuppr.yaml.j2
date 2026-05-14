@@ -1,0 +1,11 @@
+machine:
+  features:
+    # Grants tuppr (running in system-upgrade namespace) the ability to call
+    # the Talos API from inside the cluster to perform node upgrades.
+    # Without this, tuppr cannot issue upgrade or reboot commands to nodes.
+    kubernetesTalosAPIAccess:
+      enabled: true
+      allowedRoles:
+        - os:admin
+      allowedKubernetesNamespaces:
+        - system-upgrade

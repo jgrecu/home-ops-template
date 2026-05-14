@@ -1,0 +1,232 @@
+---
+# ConfigMap for kube-state-metrics to expose Flux CD custom resource metrics.
+# This enables the gotk_reconcile_condition and gotk_suspend_status metrics
+# required by Flux Grafana dashboards.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kube-state-metrics-customresourcestate-config
+  namespace: observability
+data:
+  flux.yaml: |
+    kind: CustomResourceStateMetrics
+    spec:
+      resources:
+        - groupVersionKind:
+            group: source.toolkit.fluxcd.io
+            version: "v1"
+            kind: GitRepository
+          metricNamePrefix: gotk
+          commonLabels:
+            kind: "GitRepository"
+          metrics:
+            - name: "resource_info"
+              help: "The current state of a GitOps Toolkit resource"
+              each:
+                type: Info
+                info:
+                  labelsFromPath:
+                    name: [metadata, name]
+                    exported_namespace: [metadata, namespace]
+                    ready: [status, conditions, "[type=Ready]", status]
+                    suspended: [spec, suspend]
+                    revision: [status, artifact, revision]
+                    url: [spec, url]
+            - name: "reconcile_condition"
+              help: "The current condition of a GitOps Toolkit resource reconciliation"
+              each:
+                type: StateSet
+                stateSet:
+                  labelName: status
+                  path: [status, conditions]
+                  list: [Unknown, "False", "True", Deleted]
+                  valueFrom: [status]
+                  labelsFromPath:
+                    type: [type]
+                    name: [metadata, name]
+                    exported_namespace: [metadata, namespace]
+                    kind: [kind]
+            - name: "suspend_status"
+              help: "The current suspend status of a GitOps Toolkit resource"
+              each:
+                type: StateSet
+                stateSet:
+                  labelName: suspended
+                  path: [spec, suspend]
+                  list: ["true", "false"]
+                  labelsFromPath:
+                    name: [metadata, name]
+                    exported_namespace: [metadata, namespace]
+
+        - groupVersionKind:
+            group: source.toolkit.fluxcd.io
+            version: "v1beta2"
+            kind: HelmRepository
+          metricNamePrefix: gotk
+          metrics:
+            - name: "resource_info"
+              help: "The current state of a GitOps Toolkit resource"
+              each:
+                type: Info
+                info:
+                  labelsFromPath:
+                    name: [metadata, name]
+                    exported_namespace: [metadata, namespace]
+                    ready: [status, conditions, "[type=Ready]", status]
+                    suspended: [spec, suspend]
+                    url: [spec, url]
+            - name: "reconcile_condition"
+              help: "The current condition of a GitOps Toolkit resource reconciliation"
+              each:
+                type: StateSet
+                stateSet:
+                  labelName: status
+                  path: [status, conditions]
+                  list: [Unknown, "False", "True", Deleted]
+                  valueFrom: [status]
+                  labelsFromPath:
+                    type: [type]
+                    name: [metadata, name]
+                    exported_namespace: [metadata, namespace]
+                    kind: [kind]
+            - name: "suspend_status"
+              help: "The current suspend status of a GitOps Toolkit resource"
+              each:
+                type: StateSet
+                stateSet:
+                  labelName: suspended
+                  path: [spec, suspend]
+                  list: ["true", "false"]
+                  labelsFromPath:
+                    name: [metadata, name]
+                    exported_namespace: [metadata, namespace]
+
+        - groupVersionKind:
+            group: source.toolkit.fluxcd.io
+            version: "v1beta2"
+            kind: Bucket
+          metricNamePrefix: gotk
+          metrics:
+            - name: "resource_info"
+              help: "The current state of a GitOps Toolkit resource"
+              each:
+                type: Info
+                info:
+                  labelsFromPath:
+                    name: [metadata, name]
+                    exported_namespace: [metadata, namespace]
+                    ready: [status, conditions, "[type=Ready]", status]
+                    suspended: [spec, suspend]
+                    endpoint: [spec, endpoint]
+            - name: "reconcile_condition"
+              help: "The current condition of a GitOps Toolkit resource reconciliation"
+              each:
+                type: StateSet
+                stateSet:
+                  labelName: status
+                  path: [status, conditions]
+                  list: [Unknown, "False", "True", Deleted]
+                  valueFrom: [status]
+                  labelsFromPath:
+                    type: [type]
+                    name: [metadata, name]
+                    exported_namespace: [metadata, namespace]
+                    kind: [kind]
+            - name: "suspend_status"
+              help: "The current suspend status of a GitOps Toolkit resource"
+              each:
+                type: StateSet
+                stateSet:
+                  labelName: suspended
+                  path: [spec, suspend]
+                  list: ["true", "false"]
+                  labelsFromPath:
+                    name: [metadata, name]
+                    exported_namespace: [metadata, namespace]
+
+        - groupVersionKind:
+            group: kustomize.toolkit.fluxcd.io
+            version: "v1"
+            kind: Kustomization
+          metricNamePrefix: gotk
+          metrics:
+            - name: "resource_info"
+              help: "The current state of a GitOps Toolkit resource"
+              each:
+                type: Info
+                info:
+                  labelsFromPath:
+                    name: [metadata, name]
+                    exported_namespace: [metadata, namespace]
+                    ready: [status, conditions, "[type=Ready]", status]
+                    suspended: [spec, suspend]
+                    source_name: [spec, sourceRef, name]
+            - name: "reconcile_condition"
+              help: "The current condition of a GitOps Toolkit resource reconciliation"
+              each:
+                type: StateSet
+                stateSet:
+                  labelName: status
+                  path: [status, conditions]
+                  list: [Unknown, "False", "True", Deleted]
+                  valueFrom: [status]
+                  labelsFromPath:
+                    type: [type]
+                    name: [metadata, name]
+                    exported_namespace: [metadata, namespace]
+                    kind: [kind]
+            - name: "suspend_status"
+              help: "The current suspend status of a GitOps Toolkit resource"
+              each:
+                type: StateSet
+                stateSet:
+                  labelName: suspended
+                  path: [spec, suspend]
+                  list: ["true", "false"]
+                  labelsFromPath:
+                    name: [metadata, name]
+                    exported_namespace: [metadata, namespace]
+
+        - groupVersionKind:
+            group: helm.toolkit.fluxcd.io
+            version: "v2"
+            kind: HelmRelease
+          metricNamePrefix: gotk
+          metrics:
+            - name: "resource_info"
+              help: "The current state of a GitOps Toolkit resource"
+              each:
+                type: Info
+                info:
+                  labelsFromPath:
+                    name: [metadata, name]
+                    exported_namespace: [metadata, namespace]
+                    ready: [status, conditions, "[type=Ready]", status]
+                    suspended: [spec, suspend]
+                    chart_name: [spec, chart, spec, chart]
+                    chart_source_name: [spec, chart, spec, sourceRef, name]
+            - name: "reconcile_condition"
+              help: "The current condition of a GitOps Toolkit resource reconciliation"
+              each:
+                type: StateSet
+                stateSet:
+                  labelName: status
+                  path: [status, conditions]
+                  list: [Unknown, "False", "True", Deleted]
+                  valueFrom: [status]
+                  labelsFromPath:
+                    type: [type]
+                    name: [metadata, name]
+                    exported_namespace: [metadata, namespace]
+                    kind: [kind]
+            - name: "suspend_status"
+              help: "The current suspend status of a GitOps Toolkit resource"
+              each:
+                type: StateSet
+                stateSet:
+                  labelName: suspended
+                  path: [spec, suspend]
+                  list: ["true", "false"]
+                  labelsFromPath:
+                    name: [metadata, name]
+                    exported_namespace: [metadata, namespace]

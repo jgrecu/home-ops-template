@@ -1,0 +1,28 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: k8s-gateway
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: k8s-gateway
+  interval: 1h
+  values:
+    fullnameOverride: k8s-gateway
+    domain: "${SECRET_DOMAIN}"
+    ttl: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    service:
+      type: LoadBalancer
+      port: 53
+      annotations:
+        lbipam.cilium.io/ips: "#{ cluster_dns_gateway_addr }#"
+      externalTrafficPolicy: Cluster
+    watchedResources: ["HTTPRoute", "Service"]

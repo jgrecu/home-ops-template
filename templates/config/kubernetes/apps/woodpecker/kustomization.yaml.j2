@@ -1,0 +1,13 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: woodpecker
+
+components:
+  - ../../components/sops
+
+resources:
+  - ./namespace.yaml
+  - ./woodpecker-server/ks.yaml
+  - ./woodpecker-server/backup-ks.yaml
+  - ./woodpecker-agent/ks.yaml

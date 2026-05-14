@@ -1,0 +1,21 @@
+---
+# Patch for Volsync ServiceMonitor to add bearer token authentication
+# The Helm chart creates a ServiceMonitor but doesn't support bearerTokenFile in values
+# This patch adds the required authentication for Prometheus scraping
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: volsync
+  namespace: volsync-system
+spec:
+  endpoints:
+    - port: https
+      scheme: https
+      interval: 30s
+      path: /metrics
+      bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+      tlsConfig:
+        insecureSkipVerify: true
+  selector:
+    matchLabels:
+      control-plane: volsync-controller

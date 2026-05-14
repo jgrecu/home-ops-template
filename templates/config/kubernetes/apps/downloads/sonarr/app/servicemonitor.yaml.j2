@@ -1,0 +1,20 @@
+---
+# ServiceMonitor for Sonarr metrics via Exportarr sidecar
+# Metrics include queue status, disk space, series/episode count, indexer stats
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: sonarr
+  namespace: downloads
+  labels:
+    app.kubernetes.io/name: sonarr
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sonarr
+      app.kubernetes.io/instance: sonarr
+  endpoints:
+    - port: metrics
+      interval: 60s  # Longer interval for arr-stack
+      path: /metrics
+      scrapeTimeout: 30s

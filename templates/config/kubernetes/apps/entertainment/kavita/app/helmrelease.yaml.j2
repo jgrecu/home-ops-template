@@ -1,0 +1,82 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kavita
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: kavita
+  interval: 1h
+  values:
+    controllers:
+      kavita:
+        strategy: Recreate
+        containers:
+          app:
+            image:
+              repository: ghcr.io/kareadita/kavita
+              tag: 0.9.0
+            env:
+              TZ: "Europe/Madrid"
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: &port 5000
+                  initialDelaySeconds: 30
+                  periodSeconds: 30
+                  timeoutSeconds: 10
+                  failureThreshold: 10
+              readiness: *probes
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 15m
+                memory: 256Mi
+              limits:
+                memory: 2Gi
+    persistence:
+      # Kavita config + SQLite database — kept locally on Longhorn
+      config:
+        type: persistentVolumeClaim
+        storageClass: longhorn
+        size: 2Gi
+        accessMode: ReadWriteOnce
+        globalMounts:
+          - path: /kavita/config
+      # Book library on NFS — manga, comics, PDFs, ebooks
+      # Uses static PV pointing directly to /books on NAS
+      books:
+        type: persistentVolumeClaim
+        existingClaim: kavita-books
+        globalMounts:
+          - path: /books
+    service:
+      app:
+        ports:
+          http:
+            port: *port
+    route:
+      app:
+        hostnames: ["kavita.${SECRET_DOMAIN}"]
+        parentRefs:
+          - name: envoy-external
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: *port
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: Entertainment
+          gethomepage.dev/name: Kavita
+          gethomepage.dev/icon: kavita.png
+          gethomepage.dev/description: Ebook and manga reader
+          gethomepage.dev/href: https://kavita.${SECRET_DOMAIN}

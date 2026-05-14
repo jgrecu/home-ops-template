@@ -1,0 +1,88 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: fluent-bit
+spec:
+  chart:
+    spec:
+      chart: fluent-bit
+      version: 0.57.3
+      sourceRef:
+        kind: HelmRepository
+        name: fluent-bit
+  interval: 1h
+  values:
+    # Fluent Bit runs as a DaemonSet — one pod per node — collecting container
+    # logs from /var/log/containers and shipping them to Loki.
+    kind: DaemonSet
+
+    # Enable Prometheus metrics scraping
+    serviceMonitor:
+      enabled: true
+      interval: 30s
+
+    config:
+      # Read container logs written by the container runtime (containerd uses CRI format)
+      inputs: |
+        [INPUT]
+            Name              tail
+            Path              /var/log/containers/*.log
+            multiline.parser  docker, cri
+            Tag               kube.*
+            Mem_Buf_Limit     50MB
+            Skip_Long_Lines   On
+
+      # Enrich each log line with Kubernetes metadata: namespace, pod name,
+      # container name, labels. This makes filtering in Grafana much easier.
+      filters: |
+        [FILTER]
+            Name                kubernetes
+            Match               kube.*
+            Merge_Log           On
+            Keep_Log            Off
+            K8S-Logging.Parser  On
+            K8S-Logging.Exclude On
+
+        # Drop noisy health-check and readiness probe logs to reduce volume
+        [FILTER]
+            Name    grep
+            Match   kube.*
+            Exclude log .*GET /health.*
+            Exclude log .*GET /readyz.*
+            Exclude log .*GET /livez.*
+
+      # Ship to Loki. Each log line gets labels for namespace, pod, and container
+      # so you can filter in Grafana with: {namespace="immich", pod=~"immich-.*"}
+      outputs: |
+        [OUTPUT]
+            Name                   loki
+            Match                  kube.*
+            Host                   loki-gateway.observability.svc.cluster.local
+            Port                   80
+            Labels                 job=fluent-bit
+            auto_kubernetes_labels on
+            line_format            json
+
+    # Mount the host log directory so the DaemonSet can read node container logs
+    volumeMounts:
+      - name: varlog
+        mountPath: /var/log
+
+    volumes:
+      - name: varlog
+        hostPath:
+          path: /var/log
+
+    tolerations:
+      # Run on control-plane nodes too so their logs are captured
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule
+
+    resources:
+      requests:
+        cpu: 20m
+        memory: 128Mi
+      limits:
+        memory: 1Gi

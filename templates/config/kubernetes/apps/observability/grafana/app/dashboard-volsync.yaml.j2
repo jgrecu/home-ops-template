@@ -1,0 +1,494 @@
+---
+# Volsync backup and replication monitoring dashboard
+# Tracks sync duration, missed intervals, and out-of-sync volumes across all ReplicationSources
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-volsync
+  namespace: observability
+  labels:
+    grafana_dashboard: "1"
+    grafana_folder: "Storage"
+data:
+  volsync.json: |-
+    {
+      "annotations": {
+        "list": [
+          {
+            "builtIn": 1,
+            "datasource": "-- Grafana --",
+            "enable": true,
+            "hide": true,
+            "iconColor": "rgba(0, 211, 255, 1)",
+            "name": "Annotations & Alerts",
+            "type": "dashboard"
+          }
+        ]
+      },
+      "editable": true,
+      "gnetId": null,
+      "graphTooltip": 0,
+      "id": null,
+      "links": [],
+      "panels": [
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "thresholds"},
+              "mappings": [
+                {"options": {"0": {"text": "✓ All Synced", "color": "green"}}, "type": "value"},
+                {"options": {"from": 1, "to": 999, "result": {"text": "⚠ Out of Sync", "color": "red"}}, "type": "range"}
+              ],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null},
+                  {"color": "red", "value": 1}
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": {"h": 4, "w": 8, "x": 0, "y": 0},
+          "id": 1,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "pluginVersion": "9.0.0",
+          "targets": [
+            {
+              "expr": "sum(volsync_volume_out_of_sync{job=\"volsync-metrics\"})",
+              "refId": "A"
+            }
+          ],
+          "title": "Volumes Out of Sync",
+          "type": "stat"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "thresholds"},
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null},
+                  {"color": "yellow", "value": 1},
+                  {"color": "red", "value": 5}
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": {"h": 4, "w": 8, "x": 8, "y": 0},
+          "id": 2,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "pluginVersion": "9.0.0",
+          "targets": [
+            {
+              "expr": "sum(increase(volsync_missed_intervals_total{job=\"volsync-metrics\"}[24h]))",
+              "refId": "A"
+            }
+          ],
+          "title": "Missed Intervals (24h)",
+          "type": "stat"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "thresholds"},
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null},
+                  {"color": "yellow", "value": 300},
+                  {"color": "red", "value": 600}
+                ]
+              },
+              "unit": "s"
+            },
+            "overrides": []
+          },
+          "gridPos": {"h": 4, "w": 8, "x": 16, "y": 0},
+          "id": 3,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "pluginVersion": "9.0.0",
+          "targets": [
+            {
+              "expr": "avg(rate(volsync_sync_duration_seconds_sum{job=\"volsync-metrics\"}[5m]) / rate(volsync_sync_duration_seconds_count{job=\"volsync-metrics\"}[5m]))",
+              "refId": "A"
+            }
+          ],
+          "title": "Average Sync Duration",
+          "type": "stat"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "custom": {
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {"tooltip": false, "viz": false, "legend": false},
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {"type": "linear"},
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {"group": "A", "mode": "none"},
+                "thresholdsStyle": {"mode": "off"}
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null}
+                ]
+              },
+              "unit": "s"
+            },
+            "overrides": []
+          },
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+          "id": 4,
+          "options": {
+            "legend": {"calcs": ["last", "mean", "max"], "displayMode": "table", "placement": "right"},
+            "tooltip": {"mode": "multi"}
+          },
+          "pluginVersion": "9.0.0",
+          "targets": [
+            {
+              "expr": "rate(volsync_sync_duration_seconds_sum{job=\"volsync-metrics\"}[5m]) / rate(volsync_sync_duration_seconds_count{job=\"volsync-metrics\"}[5m])",
+              "legendFormat": "{{obj_namespace}}/{{obj_name}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Sync Duration by ReplicationSource",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "custom": {
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {"tooltip": false, "viz": false, "legend": false},
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {"type": "linear"},
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {"group": "A", "mode": "none"},
+                "thresholdsStyle": {"mode": "off"}
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null},
+                  {"color": "red", "value": 1}
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+          "id": 5,
+          "options": {
+            "legend": {"calcs": ["last"], "displayMode": "table", "placement": "right"},
+            "tooltip": {"mode": "multi"}
+          },
+          "pluginVersion": "9.0.0",
+          "targets": [
+            {
+              "expr": "volsync_volume_out_of_sync{job=\"volsync-metrics\"}",
+              "legendFormat": "{{obj_namespace}}/{{obj_name}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Out of Sync Status by Volume",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "custom": {
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {"tooltip": false, "viz": false, "legend": false},
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {"type": "linear"},
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {"group": "A", "mode": "none"},
+                "thresholdsStyle": {"mode": "off"}
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null}
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+          "id": 6,
+          "options": {
+            "legend": {"calcs": ["last"], "displayMode": "table", "placement": "right"},
+            "tooltip": {"mode": "multi"}
+          },
+          "pluginVersion": "9.0.0",
+          "targets": [
+            {
+              "expr": "increase(volsync_missed_intervals_total{job=\"volsync-metrics\"}[1h])",
+              "legendFormat": "{{obj_namespace}}/{{obj_name}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Missed Intervals (per hour)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "custom": {
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {"tooltip": false, "viz": false, "legend": false},
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {"type": "linear"},
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {"group": "A", "mode": "none"},
+                "thresholdsStyle": {"mode": "off"}
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null}
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+          "id": 7,
+          "options": {
+            "legend": {"calcs": ["last"], "displayMode": "table", "placement": "right"},
+            "tooltip": {"mode": "multi"}
+          },
+          "pluginVersion": "9.0.0",
+          "targets": [
+            {
+              "expr": "rate(volsync_sync_duration_seconds_count{job=\"volsync-metrics\"}[5m]) * 60",
+              "legendFormat": "{{obj_namespace}}/{{obj_name}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Sync Operations per Minute",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "thresholds"},
+              "custom": {
+                "align": "auto",
+                "displayMode": "auto"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null},
+                  {"color": "yellow", "value": 300},
+                  {"color": "red", "value": 600}
+                ]
+              },
+              "unit": "s"
+            },
+            "overrides": [
+              {
+                "matcher": {"id": "byName", "options": "Out of Sync"},
+                "properties": [
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {"options": {"0": {"text": "✓ Synced", "color": "green"}}, "type": "value"},
+                      {"options": {"1": {"text": "✗ Out of Sync", "color": "red"}}, "type": "value"}
+                    ]
+                  },
+                  {"id": "custom.displayMode", "value": "color-background"}
+                ]
+              },
+              {
+                "matcher": {"id": "byName", "options": "Missed Intervals (24h)"},
+                "properties": [
+                  {"id": "unit", "value": "short"},
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        {"color": "green", "value": null},
+                        {"color": "yellow", "value": 1},
+                        {"color": "red", "value": 5}
+                      ]
+                    }
+                  },
+                  {"id": "custom.displayMode", "value": "color-background"}
+                ]
+              }
+            ]
+          },
+          "gridPos": {"h": 10, "w": 24, "x": 0, "y": 20},
+          "id": 8,
+          "options": {
+            "showHeader": true,
+            "sortBy": []
+          },
+          "pluginVersion": "9.0.0",
+          "targets": [
+            {
+              "expr": "avg by (obj_namespace, obj_name) (rate(volsync_sync_duration_seconds_sum{job=\"volsync-metrics\"}[5m]) / rate(volsync_sync_duration_seconds_count{job=\"volsync-metrics\"}[5m]))",
+              "format": "table",
+              "instant": true,
+              "refId": "A"
+            },
+            {
+              "expr": "volsync_volume_out_of_sync{job=\"volsync-metrics\"}",
+              "format": "table",
+              "instant": true,
+              "refId": "B"
+            },
+            {
+              "expr": "sum by (obj_namespace, obj_name) (increase(volsync_missed_intervals_total{job=\"volsync-metrics\"}[24h]))",
+              "format": "table",
+              "instant": true,
+              "refId": "C"
+            }
+          ],
+          "title": "ReplicationSource Status Summary",
+          "transformations": [
+            {
+              "id": "merge",
+              "options": {}
+            },
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Time": true,
+                  "job": true,
+                  "pod": true
+                },
+                "indexByName": {
+                  "obj_namespace": 0,
+                  "obj_name": 1,
+                  "Value #A": 2,
+                  "Value #B": 3,
+                  "Value #C": 4
+                },
+                "renameByName": {
+                  "obj_namespace": "Namespace",
+                  "obj_name": "ReplicationSource",
+                  "Value #A": "Avg Sync Duration",
+                  "Value #B": "Out of Sync",
+                  "Value #C": "Missed Intervals (24h)"
+                }
+              }
+            }
+          ],
+          "type": "table"
+        }
+      ],
+      "refresh": "1m",
+      "schemaVersion": 27,
+      "style": "dark",
+      "tags": ["volsync", "backup", "storage", "replication"],
+      "templating": {
+        "list": []
+      },
+      "time": {
+        "from": "now-6h",
+        "to": "now"
+      },
+      "timepicker": {},
+      "timezone": "",
+      "title": "Volsync Backups",
+      "uid": "volsync-backups",
+      "version": 1
+    }

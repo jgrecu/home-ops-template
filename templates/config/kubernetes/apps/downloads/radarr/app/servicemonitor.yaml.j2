@@ -1,0 +1,20 @@
+---
+# ServiceMonitor for Radarr metrics via Exportarr sidecar
+# Metrics include queue status, disk space, movie count, indexer stats
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: radarr
+  namespace: downloads
+  labels:
+    app.kubernetes.io/name: radarr
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: radarr
+      app.kubernetes.io/instance: radarr
+  endpoints:
+    - port: metrics
+      interval: 60s  # Longer interval for arr-stack
+      path: /metrics
+      scrapeTimeout: 30s

@@ -1,0 +1,64 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: longhorn
+spec:
+  chart:
+    spec:
+      chart: longhorn
+      version: 1.11.2
+      sourceRef:
+        kind: HelmRepository
+        name: longhorn
+  interval: 1h
+  values:
+    defaultSettings:
+      # Where Longhorn stores replica data on each node's disk
+      defaultDataPath: /var/lib/longhorn
+      # Keep 3 replicas across your 3 nodes — survives 2 node failures
+      defaultReplicaCount: 3
+      # Automatically rebalance replicas when a node comes back online
+      replicaAutoBalance: best-effort
+      # Orphaned data cleanup
+      orphanAutoDeletion: true
+      # S3 backup target — SeaweedFS S3-compatible storage
+      # The AWS_ENDPOINTS in longhorn-backup-secret points to SeaweedFS filer
+      # Format: s3://bucket-name@region/ (region can be any value, endpoint overrides it)
+      backupTarget: "s3://longhorn-backups@us-east-1/"
+      # Secret in the storage namespace with AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY,
+      # AWS_ENDPOINTS, and AWS_REGION. Created by storage/seaweedfs/app/longhorn-backup-secret.sops.yaml.
+      backupTargetCredentialSecret: "longhorn-backup-secret"
+    persistence:
+      # Make Longhorn the default StorageClass for the cluster.
+      # Any PVC without an explicit storageClassName will use Longhorn.
+      defaultClass: true
+      defaultClassReplicaCount: 3
+    metrics:
+      # Enable Prometheus metrics for Grafana dashboards
+      serviceMonitor:
+        enabled: true
+        interval: 30s
+    ingress:
+      enabled: false
+    longhornUI:
+      # Expose the Longhorn UI via the internal gateway
+      # Access at https://longhorn.${SECRET_DOMAIN}
+    service:
+      ui:
+        type: ClusterIP
+    # Resource limits — Tier 3 storage infrastructure
+    longhornManager:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          memory: 512Mi
+    longhornDriver:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          memory: 256Mi

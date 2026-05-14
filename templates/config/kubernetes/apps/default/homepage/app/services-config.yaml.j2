@@ -1,0 +1,17 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: homepage-services
+data:
+  services.yaml: |
+    ---
+    # Services are auto-discovered via HTTPRoute annotations (gethomepage.dev/*)
+    # Add any manual services here if needed
+
+    # Example manual service entry:
+    # - Infrastructure:
+    #     - Router:
+    #         href: http://192.168.1.1
+    #         description: Network router
+    #         icon: router.png

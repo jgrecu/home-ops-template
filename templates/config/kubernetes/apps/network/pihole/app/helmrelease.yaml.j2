@@ -1,0 +1,132 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app pihole
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: pihole
+  interval: 1h
+  values:
+    controllers:
+      pihole:
+        containers:
+          app:
+            image:
+              repository: pihole/pihole
+              tag: 2026.04.1
+            env:
+              TZ: "UTC"
+              WEBPASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: pihole-secret
+                    key: admin-password
+              # Use k8s-gateway as primary upstream - it handles cluster domains
+              # and falls back to upstream DNS for external domains
+              PIHOLE_DNS_: "#{ cluster_dns_gateway_addr }#;1.1.1.1"
+              DNSSEC: "true"
+              # The hostname Pi-hole will recognise for its own web UI
+              VIRTUAL_HOST: "pihole.${SECRET_DOMAIN}"
+              # FTL listening mode: ALL allows DNS queries from any network interface.
+              # Required when Pi-hole is exposed via LoadBalancer to your home network.
+              # Options: LOCAL (default, local subnet only), ALL (all interfaces), SINGLE (primary interface)
+              # See: https://docs.pi-hole.net/ftldns/configfile/#dns
+              FTLCONF_dns_listeningMode: "ALL"
+              # Enable reading custom dnsmasq config files from /etc/dnsmasq.d/
+              # Required for conditional forwarding to work in Pi-hole v6
+              FTLCONF_misc_etc_dnsmasq_d: "true"
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /admin/
+                    port: &webPort 80
+                  initialDelaySeconds: 30
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 5
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /admin/
+                    port: *webPort
+                  initialDelaySeconds: 15
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+            # Pi-hole runs as root and needs NET_ADMIN for DNS/iptables management
+            securityContext:
+              capabilities:
+                add: ["NET_ADMIN"]
+            resources:
+              requests:
+                cpu: 20m
+              limits:
+                memory: 512Mi
+        pod:
+          annotations:
+            secret.reloader.stakater.com/reload: *app
+          dnsPolicy: None
+          dnsConfig:
+            nameservers:
+              - 127.0.0.1
+              - 1.1.1.1
+            options:
+              - name: ndots
+                value: "0"
+    persistence:
+      # Pi-hole config, block lists, and gravity database.
+      # Longhorn ensures these survive pod restarts and node failures.
+      config:
+        type: persistentVolumeClaim
+        storageClass: longhorn
+        size: 2Gi
+        accessMode: ReadWriteOnce
+        globalMounts:
+          - path: /etc/pihole
+      # Custom DNS records and dnsmasq config snippets.
+      dnsmasq:
+        type: persistentVolumeClaim
+        storageClass: longhorn
+        size: 1Gi
+        accessMode: ReadWriteOnce
+        globalMounts:
+          - path: /etc/dnsmasq.d
+      # Conditional forwarding config: forward *.${SECRET_DOMAIN} to k8s_gateway
+      conditional-forward:
+        type: configMap
+        name: pihole-dnsmasq-config
+        globalMounts:
+          - path: /etc/dnsmasq.d/02-conditional-forward.conf
+            subPath: 02-conditional-forward.conf
+            readOnly: true
+    service:
+      # Web admin UI — routed through Envoy internal gateway
+      web:
+        ports:
+          http:
+            port: *webPort
+      # DNS service — gets a dedicated LoadBalancer IP on your home network.
+      # Cilium assigns this IP from its pool. After first deploy, check what
+      # IP was assigned with: kubectl get svc -n network pihole-dns
+      # Then point your router's DNS to that IP.
+      dns:
+        type: LoadBalancer
+        annotations:
+          # Pin a specific unused IP from your node_cidr so the DNS address
+          # is stable. Set pihole_dns_addr in cluster.yaml.
+          "lbipam.cilium.io/ips": "#{ pihole_dns_addr }#"
+        externalTrafficPolicy: Cluster
+        ports:
+          dns-tcp:
+            port: 53
+            protocol: TCP
+          dns-udp:
+            port: 53
+            protocol: UDP

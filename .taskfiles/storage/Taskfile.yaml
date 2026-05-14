@@ -1,0 +1,67 @@
+---
+version: '3'
+
+tasks:
+
+  bootstrap-seaweedfs:
+    desc: Bootstrap SeaweedFS S3 storage (creates buckets, keys, updates cluster.yaml)
+    cmd: bash {{.SCRIPTS_DIR}}/bootstrap-seaweedfs.sh
+    preconditions:
+      - test -f {{.KUBECONFIG}}
+      - test -f {{.SCRIPTS_DIR}}/bootstrap-seaweedfs.sh
+      - which kubectl jq curl openssl
+      - sh: kubectl get pod -n storage -l app.kubernetes.io/name=seaweedfs,app.kubernetes.io/component=filer -o name | grep -q pod
+        msg: SeaweedFS filer pod not found (have you deployed storage apps?)
+
+  restore-pvc:
+    desc: Restore a PVC from Volsync backup (usage - task storage:restore-pvc -- <namespace> <pvc-name> <capacity>)
+    summary: |
+      Restore a PVC from Volsync backup.
+
+      This task automates the process of restoring a PVC that was backed up by Volsync.
+      It will:
+      1. Scale down deployments using the PVC
+      2. Delete the existing PVC (if present)
+      3. Create a ReplicationDestination to restore from backup
+      4. Wait for restore to complete
+      5. Scale deployments back up
+
+      Examples:
+        task storage:restore-pvc -- forgejo forgejo-data 20Gi
+        task storage:restore-pvc -- entertainment immich-db 10Gi
+        task storage:restore-pvc -- default homepage 1Gi
+    cmd: bash {{.SCRIPTS_DIR}}/restore-pvc.sh {{.CLI_ARGS}}
+    preconditions:
+      - test -f {{.KUBECONFIG}}
+      - test -f {{.SCRIPTS_DIR}}/restore-pvc.sh
+      - which kubectl jq
+      - sh: test -n "{{.CLI_ARGS}}"
+        msg: "Usage: task storage:restore-pvc -- <namespace> <pvc-name> <capacity>"
+
+  backup-status:
+    desc: Show Volsync backup status for all PVCs
+    cmd: |
+      echo "=== Volsync ReplicationSources ==="
+      kubectl get replicationsource -A -o custom-columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name,SOURCE_PVC:.spec.sourcePVC,LAST_SYNC:.status.lastSyncTime,NEXT_SYNC:.status.nextSyncTime
+    preconditions:
+      - test -f {{.KUBECONFIG}}
+
+  pvc-usage:
+    desc: Show PVC usage across all namespaces
+    cmd: |
+      echo "=== PVC Capacity and Usage ==="
+      kubectl get pvc -A -o json | jq -r '.items[] | "\(.metadata.namespace)/\(.metadata.name): \(.status.capacity.storage // "Pending") (\(.spec.storageClassName))"' | sort
+    preconditions:
+      - test -f {{.KUBECONFIG}}
+      - which jq
+
+  longhorn-status:
+    desc: Show Longhorn volume and node status
+    cmd: |
+      echo "=== Longhorn Volumes ==="
+      kubectl get volumes.longhorn.io -n storage -o custom-columns=NAME:.metadata.name,STATE:.status.state,ROBUSTNESS:.status.robustness,SIZE:.spec.size
+      echo ""
+      echo "=== Longhorn Nodes ==="
+      kubectl get nodes.longhorn.io -n storage -o custom-columns=NAME:.metadata.name,READY:.status.conditions[?(@.type==\"Ready\")].status,SCHEDULABLE:.status.conditions[?(@.type==\"Schedulable\")].status
+    preconditions:
+      - test -f {{.KUBECONFIG}}

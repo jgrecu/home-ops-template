@@ -1,0 +1,779 @@
+---
+# Dragonfly database monitoring dashboard
+# Comprehensive metrics for cache performance, memory usage, commands, connections, and replication
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-dragonfly
+  namespace: observability
+  labels:
+    grafana_dashboard: "1"
+    grafana_folder: "Database"
+data:
+  dragonfly.json: |-
+    {
+      "annotations": {
+        "list": [
+          {
+            "builtIn": 1,
+            "datasource": "-- Grafana --",
+            "enable": true,
+            "hide": true,
+            "iconColor": "rgba(0, 211, 255, 1)",
+            "name": "Annotations & Alerts",
+            "type": "dashboard"
+          }
+        ]
+      },
+      "editable": true,
+      "gnetId": null,
+      "graphTooltip": 0,
+      "id": null,
+      "links": [],
+      "panels": [
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "thresholds"},
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null},
+                  {"color": "red", "value": 0}
+                ]
+              },
+              "unit": "s"
+            },
+            "overrides": []
+          },
+          "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+          "id": 1,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "pluginVersion": "9.0.0",
+          "targets": [
+            {
+              "expr": "dragonfly_uptime_in_seconds{job=\"dragonfly-metrics\"}",
+              "refId": "A"
+            }
+          ],
+          "title": "Uptime",
+          "type": "stat"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "thresholds"},
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null},
+                  {"color": "yellow", "value": 50},
+                  {"color": "red", "value": 100}
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+          "id": 2,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "pluginVersion": "9.0.0",
+          "targets": [
+            {
+              "expr": "dragonfly_connected_clients{job=\"dragonfly-metrics\"}",
+              "refId": "A"
+            }
+          ],
+          "title": "Connected Clients",
+          "type": "stat"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "thresholds"},
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null}
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+          "id": 3,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "pluginVersion": "9.0.0",
+          "targets": [
+            {
+              "expr": "sum(dragonfly_db_keys{job=\"dragonfly-metrics\"})",
+              "refId": "A"
+            }
+          ],
+          "title": "Total Keys",
+          "type": "stat"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "custom": {
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {"tooltip": false, "viz": false, "legend": false},
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {"type": "linear"},
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {"group": "A", "mode": "none"},
+                "thresholdsStyle": {"mode": "off"}
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null}
+                ]
+              },
+              "unit": "bytes"
+            },
+            "overrides": []
+          },
+          "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+          "id": 4,
+          "options": {
+            "legend": {"calcs": [], "displayMode": "list", "placement": "bottom"},
+            "tooltip": {"mode": "single"}
+          },
+          "pluginVersion": "9.0.0",
+          "targets": [
+            {
+              "expr": "dragonfly_memory_used_bytes{job=\"dragonfly-metrics\"}",
+              "legendFormat": "Used",
+              "refId": "A"
+            },
+            {
+              "expr": "dragonfly_memory_max_bytes{job=\"dragonfly-metrics\"}",
+              "legendFormat": "Max",
+              "refId": "B"
+            }
+          ],
+          "title": "Memory Usage",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "custom": {
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {"tooltip": false, "viz": false, "legend": false},
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {"type": "linear"},
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {"group": "A", "mode": "none"},
+                "thresholdsStyle": {"mode": "off"}
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null}
+                ]
+              },
+              "unit": "ops"
+            },
+            "overrides": []
+          },
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+          "id": 5,
+          "options": {
+            "legend": {"calcs": ["last"], "displayMode": "table", "placement": "right"},
+            "tooltip": {"mode": "multi"}
+          },
+          "pluginVersion": "9.0.0",
+          "targets": [
+            {
+              "expr": "rate(dragonfly_commands_total{job=\"dragonfly-metrics\"}[5m])",
+              "legendFormat": "{{cmd}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Commands per Second (by type)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "custom": {
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {"tooltip": false, "viz": false, "legend": false},
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {"type": "linear"},
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {"group": "A", "mode": "none"},
+                "thresholdsStyle": {"mode": "off"}
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null}
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+          "id": 6,
+          "options": {
+            "legend": {"calcs": ["last"], "displayMode": "list", "placement": "bottom"},
+            "tooltip": {"mode": "single"}
+          },
+          "pluginVersion": "9.0.0",
+          "targets": [
+            {
+              "expr": "dragonfly_connected_clients{job=\"dragonfly-metrics\"}",
+              "legendFormat": "Connected",
+              "refId": "A"
+            },
+            {
+              "expr": "dragonfly_blocked_clients{job=\"dragonfly-metrics\"}",
+              "legendFormat": "Blocked",
+              "refId": "B"
+            }
+          ],
+          "title": "Client Connections",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "custom": {
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {"tooltip": false, "viz": false, "legend": false},
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {"type": "linear"},
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {"group": "A", "mode": "none"},
+                "thresholdsStyle": {"mode": "off"}
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null}
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+          "id": 7,
+          "options": {
+            "legend": {"calcs": ["last"], "displayMode": "list", "placement": "bottom"},
+            "tooltip": {"mode": "single"}
+          },
+          "pluginVersion": "9.0.0",
+          "targets": [
+            {
+              "expr": "sum(dragonfly_db_keys{job=\"dragonfly-metrics\"})",
+              "legendFormat": "Total Keys",
+              "refId": "A"
+            },
+            {
+              "expr": "sum(dragonfly_db_keys_expiring{job=\"dragonfly-metrics\"})",
+              "legendFormat": "Expiring Keys",
+              "refId": "B"
+            }
+          ],
+          "title": "Key Count",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "custom": {
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {"tooltip": false, "viz": false, "legend": false},
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {"type": "linear"},
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {"group": "A", "mode": "none"},
+                "thresholdsStyle": {"mode": "off"}
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null}
+                ]
+              },
+              "unit": "percentunit"
+            },
+            "overrides": []
+          },
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+          "id": 8,
+          "options": {
+            "legend": {"calcs": ["last"], "displayMode": "list", "placement": "bottom"},
+            "tooltip": {"mode": "single"}
+          },
+          "pluginVersion": "9.0.0",
+          "targets": [
+            {
+              "expr": "rate(dragonfly_keyspace_hits_total{job=\"dragonfly-metrics\"}[5m]) / (rate(dragonfly_keyspace_hits_total{job=\"dragonfly-metrics\"}[5m]) + rate(dragonfly_keyspace_misses_total{job=\"dragonfly-metrics\"}[5m]))",
+              "legendFormat": "Hit Rate",
+              "refId": "A"
+            }
+          ],
+          "title": "Cache Hit Rate",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "custom": {
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {"tooltip": false, "viz": false, "legend": false},
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {"type": "linear"},
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {"group": "A", "mode": "none"},
+                "thresholdsStyle": {"mode": "off"}
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null}
+                ]
+              },
+              "unit": "Bps"
+            },
+            "overrides": []
+          },
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
+          "id": 9,
+          "options": {
+            "legend": {"calcs": ["last"], "displayMode": "list", "placement": "bottom"},
+            "tooltip": {"mode": "single"}
+          },
+          "pluginVersion": "9.0.0",
+          "targets": [
+            {
+              "expr": "rate(dragonfly_net_input_bytes_total{job=\"dragonfly-metrics\"}[5m])",
+              "legendFormat": "Input",
+              "refId": "A"
+            },
+            {
+              "expr": "rate(dragonfly_net_output_bytes_total{job=\"dragonfly-metrics\"}[5m])",
+              "legendFormat": "Output",
+              "refId": "B"
+            }
+          ],
+          "title": "Network Throughput",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "custom": {
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {"tooltip": false, "viz": false, "legend": false},
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {"type": "linear"},
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {"group": "A", "mode": "none"},
+                "thresholdsStyle": {"mode": "off"}
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null}
+                ]
+              },
+              "unit": "s"
+            },
+            "overrides": []
+          },
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20},
+          "id": 10,
+          "options": {
+            "legend": {"calcs": ["last", "mean"], "displayMode": "table", "placement": "right"},
+            "tooltip": {"mode": "single"}
+          },
+          "pluginVersion": "9.0.0",
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.99, rate(dragonfly_pipeline_latency_seconds_bucket{job=\"dragonfly-metrics\"}[5m]))",
+              "legendFormat": "p99",
+              "refId": "A"
+            },
+            {
+              "expr": "histogram_quantile(0.95, rate(dragonfly_pipeline_latency_seconds_bucket{job=\"dragonfly-metrics\"}[5m]))",
+              "legendFormat": "p95",
+              "refId": "B"
+            },
+            {
+              "expr": "histogram_quantile(0.50, rate(dragonfly_pipeline_latency_seconds_bucket{job=\"dragonfly-metrics\"}[5m]))",
+              "legendFormat": "p50",
+              "refId": "C"
+            }
+          ],
+          "title": "Command Latency (Percentiles)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "custom": {
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {"tooltip": false, "viz": false, "legend": false},
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {"type": "linear"},
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {"group": "A", "mode": "none"},
+                "thresholdsStyle": {"mode": "off"}
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null}
+                ]
+              },
+              "unit": "bytes"
+            },
+            "overrides": []
+          },
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 28},
+          "id": 11,
+          "options": {
+            "legend": {"calcs": ["last"], "displayMode": "list", "placement": "bottom"},
+            "tooltip": {"mode": "single"}
+          },
+          "pluginVersion": "9.0.0",
+          "targets": [
+            {
+              "expr": "dragonfly_memory_used_bytes{job=\"dragonfly-metrics\"}",
+              "legendFormat": "Used",
+              "refId": "A"
+            },
+            {
+              "expr": "dragonfly_memory_used_peak_bytes{job=\"dragonfly-metrics\"}",
+              "legendFormat": "Peak",
+              "refId": "B"
+            },
+            {
+              "expr": "dragonfly_used_memory_rss_bytes{job=\"dragonfly-metrics\"}",
+              "legendFormat": "RSS",
+              "refId": "C"
+            }
+          ],
+          "title": "Memory Breakdown",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "custom": {
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {"tooltip": false, "viz": false, "legend": false},
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {"type": "linear"},
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {"group": "A", "mode": "none"},
+                "thresholdsStyle": {"mode": "off"}
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null}
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 28},
+          "id": 12,
+          "options": {
+            "legend": {"calcs": ["last"], "displayMode": "list", "placement": "bottom"},
+            "tooltip": {"mode": "single"}
+          },
+          "pluginVersion": "9.0.0",
+          "targets": [
+            {
+              "expr": "rate(dragonfly_expired_keys_total{job=\"dragonfly-metrics\"}[5m])",
+              "legendFormat": "Expirations/sec",
+              "refId": "A"
+            },
+            {
+              "expr": "rate(dragonfly_keyspace_mutations_total{job=\"dragonfly-metrics\"}[5m])",
+              "legendFormat": "Mutations/sec",
+              "refId": "B"
+            }
+          ],
+          "title": "Key Operations",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "custom": {
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {"tooltip": false, "viz": false, "legend": false},
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {"type": "linear"},
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {"group": "A", "mode": "none"},
+                "thresholdsStyle": {"mode": "off"}
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null}
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 36},
+          "id": 13,
+          "options": {
+            "legend": {"calcs": ["last"], "displayMode": "list", "placement": "bottom"},
+            "tooltip": {"mode": "single"}
+          },
+          "pluginVersion": "9.0.0",
+          "targets": [
+            {
+              "expr": "dragonfly_pipeline_queue_length{job=\"dragonfly-metrics\"}",
+              "legendFormat": "Queue Length",
+              "refId": "A"
+            },
+            {
+              "expr": "dragonfly_tx_queue_len{job=\"dragonfly-metrics\"}",
+              "legendFormat": "TX Queue",
+              "refId": "B"
+            }
+          ],
+          "title": "Pipeline & Transaction Queues",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "custom": {
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {"tooltip": false, "viz": false, "legend": false},
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {"type": "linear"},
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {"group": "A", "mode": "none"},
+                "thresholdsStyle": {"mode": "off"}
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null}
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 36},
+          "id": 14,
+          "options": {
+            "legend": {"calcs": ["last"], "displayMode": "list", "placement": "bottom"},
+            "tooltip": {"mode": "single"}
+          },
+          "pluginVersion": "9.0.0",
+          "targets": [
+            {
+              "expr": "dragonfly_backups_total{job=\"dragonfly-metrics\"}",
+              "legendFormat": "Successful Backups",
+              "refId": "A"
+            },
+            {
+              "expr": "dragonfly_failed_backups_total{job=\"dragonfly-metrics\"}",
+              "legendFormat": "Failed Backups",
+              "refId": "B"
+            }
+          ],
+          "title": "Backup Status",
+          "type": "timeseries"
+        }
+      ],
+      "refresh": "30s",
+      "schemaVersion": 27,
+      "style": "dark",
+      "tags": ["dragonfly", "database", "cache", "redis"],
+      "templating": {
+        "list": []
+      },
+      "time": {
+        "from": "now-6h",
+        "to": "now"
+      },
+      "timepicker": {},
+      "timezone": "",
+      "title": "Dragonfly Database",
+      "uid": "dragonfly-db",
+      "version": 1
+    }

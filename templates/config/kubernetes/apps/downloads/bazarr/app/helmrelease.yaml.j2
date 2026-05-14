@@ -1,0 +1,108 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: bazarr
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: bazarr
+  interval: 1h
+  values:
+    controllers:
+      bazarr:
+        containers:
+          app:
+            image:
+              repository: lscr.io/linuxserver/bazarr
+              # renovate: datasource=docker depName=lscr.io/linuxserver/bazarr
+              tag: v1.5.6-ls348
+            env:
+              TZ: "Europe/Madrid"
+              # LinuxServer: drop to this UID/GID after s6-overlay init
+              PUID: "1000"
+              PGID: "1000"
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: &port 6767
+                  initialDelaySeconds: 30
+                  periodSeconds: 30
+              readiness: *probes
+            # LinuxServer images use s6-overlay which starts as root and drops
+            # to PUID/PGID. Do not drop all capabilities or the init will fail.
+            securityContext:
+              allowPrivilegeEscalation: false
+            resources:
+              requests:
+                cpu: 10m
+                memory: 128Mi
+              limits:
+                memory: 512Mi
+
+          exportarr:
+            image:
+              repository: ghcr.io/onedr0p/exportarr
+              tag: v2.3.0
+            args:
+              - bazarr
+            env:
+              PORT: "9707"
+              URL: "http://localhost:6767"
+              APIKEY: "#{ bazarr_api_key }#"
+              ENABLE_ADDITIONAL_METRICS: "true"
+            resources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                memory: 128Mi
+
+    persistence:
+      config:
+        type: persistentVolumeClaim
+        storageClass: longhorn
+        size: 2Gi
+        accessMode: ReadWriteOnce
+        globalMounts:
+          - path: /config
+
+      # NFS media library — Bazarr writes subtitles directly to /media/Films and /media/Series
+      # where Radarr/Sonarr have already placed the video files.
+      # Uses shared static PV pointing to /videos on NAS
+      media:
+        type: persistentVolumeClaim
+        existingClaim: media-library
+        globalMounts:
+          - path: /media
+
+    service:
+      app:
+        ports:
+          http:
+            port: *port
+          metrics:
+            port: 9707
+
+    route:
+      app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: Downloads
+          gethomepage.dev/name: Bazarr
+          gethomepage.dev/icon: bazarr.png
+          gethomepage.dev/description: Subtitle manager for Radarr and Sonarr
+          gethomepage.dev/href: https://bazarr.${SECRET_DOMAIN}
+        hostnames: ["bazarr.${SECRET_DOMAIN}"]
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: *port

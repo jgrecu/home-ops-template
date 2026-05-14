@@ -1,0 +1,55 @@
+---
+# Immich requires PostgreSQL with the pgvecto.rs extension for its
+# AI/vector search features (face clustering, CLIP semantic search).
+# We use the cloudnative-pgvecto.rs image instead of stock PostgreSQL —
+# same CNPG operator, just a custom image that includes the extension.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: immich-postgres
+spec:
+  # Custom image with pgvecto.rs extension built in
+  imageName: ghcr.io/tensorchord/cloudnative-pgvecto.rs:16-v0.3.0
+  # 2 instances = 1 primary + 1 replica for high availability.
+  # CNPG operator automatically enables soft pod anti-affinity to spread across nodes.
+  # Provides automatic failover and read scaling.
+  instances: 2
+  resources:
+    requests:
+      cpu: 250m
+      memory: 1Gi
+    limits:
+      memory: 4Gi
+  storage:
+    storageClass: longhorn-single
+    size: 10Gi
+  postgresql:
+    shared_preload_libraries:
+      - "vectors.so"
+  bootstrap:
+    initdb:
+      database: immich
+      owner: immich
+      # Enable required extensions after the database is created
+      postInitApplicationSQL:
+        - CREATE EXTENSION IF NOT EXISTS vectors;
+        - CREATE EXTENSION IF NOT EXISTS earthdistance CASCADE;
+        - ALTER DATABASE immich SET search_path TO public, vectors;
+        - GRANT USAGE ON SCHEMA vectors TO immich;
+        - GRANT ALL ON ALL TABLES IN SCHEMA vectors TO immich;
+  # Continuous WAL archiving to SeaweedFS S3
+  # Provides point-in-time recovery with ~5 minute RPO
+  backup:
+    barmanObjectStore:
+      destinationPath: "s3://cnpg-backups/immich-postgres/"
+      endpointURL: "http://seaweedfs-filer.storage.svc.cluster.local:8333"
+      s3Credentials:
+        accessKeyId:
+          name: cnpg-backup-secret
+          key: ACCESS_KEY_ID
+        secretAccessKey:
+          name: cnpg-backup-secret
+          key: ACCESS_SECRET_KEY
+      wal:
+        compression: gzip
+    retentionPolicy: "180d"

@@ -1,0 +1,27 @@
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: forgejo-runner
+spec:
+  # The runner needs a registration token that only exists after Forgejo is
+  # running. Deploy order:
+  #   1. Forgejo deploys and becomes healthy (wait: true above ensures this)
+  #   2. Log into Forgejo admin UI → Site Administration → Runners → New runner token
+  #   3. Set forgejo_runner_secret in cluster.yaml, re-render, commit
+  #   4. Flux reconciles and the runner registers itself
+  dependsOn:
+    - name: forgejo
+  interval: 1h
+  path: ./kubernetes/apps/forgejo/forgejo-runner/app
+  postBuild:
+    substituteFrom:
+      - name: cluster-secrets
+        kind: Secret
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: forgejo
+  wait: false

@@ -1,0 +1,41 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: homepage-bookmarks
+data:
+  bookmarks.yaml: |
+    ---
+    - Development:
+        - GitHub:
+            - abbr: GH
+              href: https://github.com/#{ repository_name }#
+        - Talos Factory:
+            - abbr: TF
+              href: https://factory.talos.dev
+        - Cloudflare:
+            - abbr: CF
+              href: https://dash.cloudflare.com
+
+    - Documentation:
+        - Homepage:
+            - abbr: HP
+              href: https://gethomepage.dev
+        - Talos:
+            - abbr: TL
+              href: https://www.talos.dev/latest
+        - Flux:
+            - abbr: FX
+              href: https://fluxcd.io/flux
+        - Longhorn:
+            - abbr: LH
+              href: https://longhorn.io/docs/latest
+        - Home Assistant:
+            - abbr: HA
+              href: https://www.home-assistant.io/docs/
+        - Nextcloud:
+            - abbr: NC
+              href: https://docs.nextcloud.com
+        - Forgejo:
+            - abbr: FG
+              href: https://forgejo.org/docs/latest/

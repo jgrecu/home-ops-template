@@ -1,0 +1,285 @@
+{
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  extends: [
+    'config:recommended',
+    'docker:enableMajor',
+    'helpers:pinGitHubActionDigests',
+    ':dependencyDashboard',
+    ':semanticCommits',
+  ],
+  dependencyDashboard: true,
+  dependencyDashboardTitle: 'Renovate Dashboard :robot:',
+  schedule: [
+    'every weekend',
+  ],
+  minimumReleaseAge: '3 days',
+  osvVulnerabilityAlerts: true,
+  platformAutomerge: true,
+  ignorePaths: [
+    '**/*.sops.*',
+    'templates/overrides/**',
+    'templates/scripts/**',
+  ],
+  flux: {
+    managerFilePatterns: [
+      '/(^|/)kubernetes/.+\\.ya?ml(?:\\.j2)?$/',
+    ],
+  },
+  helmfile: {
+    managerFilePatterns: [
+      '/(^|/)helmfile\\.ya?ml(?:\\.gotmpl)?(?:\\.j2)?$/',
+      '/(^|/)helmfile\\.d/.+\\.ya?ml(?:\\.gotmpl)?(?:\\.j2)?$/',
+    ],
+  },
+  kubernetes: {
+    managerFilePatterns: [
+      '/(^|/)kubernetes/.+\\.ya?ml(?:\\.j2)?$/',
+    ],
+  },
+  kustomize: {
+    managerFilePatterns: [
+      '/^kustomization\\.ya?ml(?:\\.j2)?$/',
+    ],
+  },
+  packageRules: [
+    {
+      description: 'Override Helmfile Dependency Name',
+      matchDatasources: [
+        'docker',
+      ],
+      matchManagers: [
+        'helmfile',
+      ],
+      overrideDepName: '{{packageName}}',
+    },
+    {
+      description: 'Disable Renovate for Forgejo Helm chart (Codeberg OCI not supported)',
+      enabled: false,
+      matchPackageNames: [
+        '/^codeberg\\.org/forgejo-helm/forgejo$/',
+      ],
+    },
+    {
+      description: 'Flux Operator Group',
+      groupName: 'flux-operator',
+      matchDatasources: [
+        'docker',
+      ],
+      matchPackageNames: [
+        '/flux-operator/',
+        '/flux-instance/',
+        '/flux-operator-manifests/',
+      ],
+      group: {
+        commitMessageTopic: '{{{groupName}}} group',
+      },
+      minimumGroupSize: 3,
+    },
+    {
+      description: '*arr stack group (sonarr, radarr, prowlarr, bazarr, recyclarr)',
+      groupName: 'arr-stack',
+      matchDatasources: [
+        'docker',
+      ],
+      matchPackageNames: [
+        '/^lscr\\.io/linuxserver/(sonarr|radarr|prowlarr|bazarr)$/',
+        '/^ghcr\\.io/recyclarr/recyclarr$/',
+      ],
+      group: {
+        commitMessageTopic: '{{{groupName}}} group',
+      },
+    },
+    {
+      description: 'Database operators group (cloudnative-pg, dragonfly)',
+      groupName: 'database-operators',
+      matchDatasources: [
+        'docker',
+      ],
+      matchPackageNames: [
+        '/cloudnative-pg/charts/cloudnative-pg/',
+        '/dragonflydb/dragonfly-operator/',
+      ],
+      group: {
+        commitMessageTopic: '{{{groupName}}} group',
+      },
+    },
+    {
+      description: 'Auto-merge GitHub Actions digest updates (skip tests)',
+      matchManagers: [
+        'github-actions',
+      ],
+      matchUpdateTypes: [
+        'digest',
+      ],
+      automerge: true,
+      ignoreTests: true,
+    },
+    {
+      description: 'Auto-merge GitHub Actions minor/patch (require tests)',
+      matchManagers: [
+        'github-actions',
+      ],
+      matchUpdateTypes: [
+        'minor',
+        'patch',
+      ],
+      automerge: true,
+    },
+    {
+      matchUpdateTypes: [
+        'major',
+      ],
+      semanticCommitType: 'feat',
+      commitMessagePrefix: '{{semanticCommitType}}({{semanticCommitScope}})!:',
+      commitMessageExtra: '( {{currentVersion}} ➔ {{newVersion}} )',
+    },
+    {
+      matchUpdateTypes: [
+        'minor',
+      ],
+      semanticCommitType: 'feat',
+      commitMessageExtra: '( {{currentVersion}} ➔ {{newVersion}} )',
+    },
+    {
+      matchUpdateTypes: [
+        'patch',
+      ],
+      semanticCommitType: 'fix',
+      commitMessageExtra: '( {{currentVersion}} ➔ {{newVersion}} )',
+    },
+    {
+      matchUpdateTypes: [
+        'digest',
+      ],
+      semanticCommitType: 'chore',
+      commitMessageExtra: '( {{currentDigestShort}} ➔ {{newDigestShort}} )',
+    },
+    {
+      matchDatasources: [
+        'docker',
+      ],
+      semanticCommitScope: 'container',
+      commitMessageTopic: 'image {{depName}}',
+    },
+    {
+      matchDatasources: [
+        'helm',
+      ],
+      semanticCommitScope: 'helm',
+      commitMessageTopic: 'chart {{depName}}',
+    },
+    {
+      matchManagers: [
+        'github-actions',
+      ],
+      semanticCommitType: 'ci',
+      semanticCommitScope: 'github-action',
+      commitMessageTopic: 'action {{depName}}',
+    },
+    {
+      matchDatasources: [
+        'github-releases',
+      ],
+      semanticCommitScope: 'github-release',
+      commitMessageTopic: 'release {{depName}}',
+    },
+    {
+      matchManagers: [
+        'mise',
+      ],
+      semanticCommitScope: 'mise',
+      commitMessageTopic: 'tool {{depName}}',
+    },
+    {
+      matchUpdateTypes: [
+        'major',
+      ],
+      labels: [
+        'type/major',
+      ],
+    },
+    {
+      matchUpdateTypes: [
+        'minor',
+      ],
+      labels: [
+        'type/minor',
+      ],
+    },
+    {
+      matchUpdateTypes: [
+        'patch',
+      ],
+      labels: [
+        'type/patch',
+      ],
+    },
+    {
+      matchUpdateTypes: [
+        'digest',
+      ],
+      labels: [
+        'type/digest',
+      ],
+    },
+    {
+      matchDatasources: [
+        'docker',
+      ],
+      addLabels: [
+        'renovate/container',
+      ],
+    },
+    {
+      matchDatasources: [
+        'helm',
+      ],
+      addLabels: [
+        'renovate/helm',
+      ],
+    },
+    {
+      matchManagers: [
+        'github-actions',
+      ],
+      addLabels: [
+        'renovate/github-action',
+      ],
+    },
+    {
+      matchDatasources: [
+        'github-releases',
+      ],
+      addLabels: [
+        'renovate/github-release',
+      ],
+    },
+  ],
+  customManagers: [
+    {
+      description: 'Process annotated dependencies',
+      customType: 'regex',
+      managerFilePatterns: [
+        '/(^|/).+\\.env(?:\\.j2)?$/',
+        '/(^|/).+\\.sh(?:\\.j2)?$/',
+        '/(^|/).+\\.ya?ml(?:\\.j2)?$/',
+      ],
+      matchStrings: [
+        'datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)( repository=(?<registryUrl>\\S+))?\\n.+(:\\s|=)(&\\S+\\s)?(?<currentValue>\\S+)',
+        'datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\n.+/(?<currentValue>(v|\\d)[^/]+)',
+      ],
+      datasourceTemplate: '{{#if datasource}}{{{datasource}}}{{else}}github-releases{{/if}}',
+    },
+    {
+      customType: 'regex',
+      description: 'Process OCI dependencies',
+      managerFilePatterns: [
+        '/\\.yaml(?:\\.j2)?$/',
+      ],
+      matchStrings: [
+        'oci://(?<depName>[^:]+):(?<currentValue>\\S+)',
+      ],
+      datasourceTemplate: 'docker',
+    },
+  ],
+}

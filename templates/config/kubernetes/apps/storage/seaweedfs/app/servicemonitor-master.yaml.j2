@@ -1,0 +1,23 @@
+---
+# ServiceMonitor for SeaweedFS Master metrics
+# Scrapes metrics from master nodes:
+# - seaweedfs_master_volume_size_bytes: Total volume size
+# - seaweedfs_master_volumes: Number of volumes
+# - seaweedfs_master_leader: Leadership status (1=leader, 0=follower)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: seaweedfs-master
+  namespace: storage
+  labels:
+    app.kubernetes.io/name: seaweedfs
+    app.kubernetes.io/component: master
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: seaweedfs
+      app.kubernetes.io/component: master
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics

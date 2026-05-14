@@ -1,0 +1,36 @@
+---
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        exclude: |
+          (?x)^(
+            kubernetes/.*\.sops\.yaml$
+          )
+      - id: check-added-large-files
+        args: ['--maxkb=2048']
+      - id: check-merge-conflict
+
+  - repo: https://github.com/koalaman/shellcheck-precommit
+    rev: v0.9.0
+    hooks:
+      - id: shellcheck
+        args: ['--severity=warning']
+
+  - repo: https://github.com/jumanjihouse/pre-commit-hooks
+    rev: 3.0.0
+    hooks:
+      - id: script-must-have-extension
+        name: Ensure shell scripts have .sh extension
+        types: [shell]
+
+  - repo: local
+    hooks:
+      - id: sops-check
+        name: SOPS encryption check
+        entry: bash -c 'for f in "$@"; do grep -q "sops:" "$f" || (echo "ERROR - $f not encrypted with SOPS" && exit 1); done' --
+        language: system
+        files: \.sops\.yaml$

@@ -1,0 +1,14 @@
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: woodpecker-postgres-weekly
+  namespace: woodpecker
+spec:
+  # Weekly full backup every Monday at 2 AM (6-field cron: sec min hour day month dow)
+  schedule: "0 0 2 * * 1"
+  backupOwnerReference: self
+  cluster:
+    name: woodpecker-postgres
+  # Keep 4 weekly backups (1 month)
+  immediate: false

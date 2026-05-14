@@ -1,0 +1,156 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: nextcloud
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: nextcloud
+  interval: 1h
+  values:
+    controllers:
+      nextcloud:
+        strategy: Recreate
+        containers:
+          app:
+            image:
+              repository: nextcloud
+              tag: 33.0.3-apache
+            env:
+              # Initial admin account — only used on first boot.
+              # After init, credentials are stored in the Longhorn PVC.
+              NEXTCLOUD_ADMIN_USER: admin
+              NEXTCLOUD_ADMIN_PASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: nextcloud-secret
+                    key: admin-password
+              # Trusted domain — must match your actual hostname exactly
+              NEXTCLOUD_TRUSTED_DOMAINS: "nextcloud.${SECRET_DOMAIN}"
+              # Where user files live — this path is the NFS mount point
+              NEXTCLOUD_DATA_DIR: /var/www/html/data
+              # PostgreSQL connection via CNPG-managed cluster
+              POSTGRES_HOST: nextcloud-postgres-rw
+              POSTGRES_DB: nextcloud
+              POSTGRES_USER: nextcloud
+              POSTGRES_PASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: nextcloud-postgres-app
+                    key: password
+              # Redis for file locking and session caching.
+              # Without Redis, Nextcloud uses DB-level locking which is slow.
+              # Using shared Dragonfly instance from database-system namespace.
+              REDIS_HOST: dragonfly.database-system.svc.cluster.local
+              REDIS_HOST_PORT: "6379"
+              # PHP memory limit — 512Mi covers most workloads including
+              # thumbnail generation and file uploads
+              PHP_MEMORY_LIMIT: 512M
+              PHP_UPLOAD_LIMIT: 10G
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /status.php
+                    port: &port 80
+                  initialDelaySeconds: 30
+                  periodSeconds: 30
+                  timeoutSeconds: 10
+                  failureThreshold: 5
+              readiness: *probes
+            # Nextcloud requires root and CHOWN capability for rsync during init
+            securityContext:
+              runAsUser: 0
+              runAsGroup: 0
+            resources:
+              requests:
+                cpu: 20m
+                memory: 256Mi
+              limits:
+                memory: 2Gi
+
+      # Nextcloud requires background jobs for notifications, sharing cleanup,
+      # previews, and other housekeeping. This cronjob runs every 5 minutes.
+      # It uses the same image and persistence as the main app so it has
+      # access to config and data.
+      cron:
+        type: cronjob
+        cronjob:
+          schedule: "*/5 * * * *"
+          concurrencyPolicy: Forbid
+          failedJobsHistory: 1
+          successfulJobsHistory: 1
+        pod:
+          affinity:
+            podAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+                - weight: 100
+                  podAffinityTerm:
+                    labelSelector:
+                      matchLabels:
+                        app.kubernetes.io/controller: nextcloud
+                    topologyKey: kubernetes.io/hostname
+        containers:
+          cron:
+            image:
+              repository: nextcloud
+              tag: 33.0.3-apache
+            command: ["su", "-s", "/bin/bash", "www-data", "-c", "php -f /var/www/html/cron.php"]
+            securityContext:
+              runAsUser: 0
+              runAsGroup: 0
+            resources:
+              requests:
+                cpu: 10m
+                memory: 256Mi
+              limits:
+                memory: 512Mi
+
+    persistence:
+      # Nextcloud installation + config stored on Longhorn.
+      # This includes: nextcloud source code, config/config.php, apps/, themes/
+      # Survives pod restarts. Longhorn handles replication across nodes.
+      html:
+        type: persistentVolumeClaim
+        storageClass: longhorn
+        size: 10Gi
+        accessMode: ReadWriteOnce
+        globalMounts:
+          - path: /var/www/html
+
+      # User data on NFS — documents, photos, videos uploaded by users.
+      # Uses static PV pointing directly to /nextcloud on NAS.
+      data:
+        type: persistentVolumeClaim
+        existingClaim: nextcloud-nfs-data
+        globalMounts:
+          - path: /var/www/html/data
+
+    service:
+      app:
+        controller: nextcloud
+        ports:
+          http:
+            port: *port
+
+    route:
+      app:
+        parentRefs:
+          - name: envoy-external
+            namespace: network
+            sectionName: https
+        hostnames: ["nextcloud.${SECRET_DOMAIN}"]
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: *port
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: Cloud
+          gethomepage.dev/name: Nextcloud
+          gethomepage.dev/icon: nextcloud.png
+          gethomepage.dev/description: Private cloud file sync and sharing
+          gethomepage.dev/href: https://nextcloud.${SECRET_DOMAIN}

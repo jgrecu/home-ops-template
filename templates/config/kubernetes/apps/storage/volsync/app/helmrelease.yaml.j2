@@ -1,0 +1,84 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: volsync
+  namespace: volsync-system
+spec:
+  interval: 1h
+  chart:
+    spec:
+      chart: volsync
+      version: 0.15.0
+      sourceRef:
+        kind: HelmRepository
+        name: backube
+        namespace: volsync-system
+      interval: 1h
+  install:
+    crds: CreateReplace
+  upgrade:
+    crds: CreateReplace
+  values:
+    # Resource limits appropriate for RPi4
+    resources:
+      limits:
+        memory: 256Mi
+      requests:
+        cpu: 50m
+        memory: 128Mi
+
+    # Enable metrics for Prometheus monitoring
+    metrics:
+      serviceMonitor:
+        enabled: true
+        namespace: volsync-system
+        labels:
+          prometheus: kube-prometheus
+        # Add bearer token for authentication (fixes 401 Unauthorized)
+        bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+
+    # Container security context
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 65534
+      seccompProfile:
+        type: RuntimeDefault
+
+    # Pod security context (fsGroup goes here, not in securityContext)
+    podSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 65534
+      fsGroup: 65534
+
+    # Controller settings
+    controller:
+      replicas: 1
+
+      # Node selector for control plane nodes if desired
+      # nodeSelector:
+      #   node-role.kubernetes.io/control-plane: ""
+
+      # Tolerations for control plane
+      # tolerations:
+      #   - key: node-role.kubernetes.io/control-plane
+      #     operator: Exists
+      #     effect: NoSchedule
+
+    # Enable Restic mover (for S3 backups)
+    restic:
+      enabled: true
+
+    # Disable movers we don't need
+    rclone:
+      enabled: false
+    rsync:
+      enabled: false
+    rsync-tls:
+      enabled: false
+    syncthing:
+      enabled: false
+
+    # Volume snapshot class for Longhorn
+    # This will be used by default for all ReplicationSources
+    volumeSnapshotClassName: longhorn

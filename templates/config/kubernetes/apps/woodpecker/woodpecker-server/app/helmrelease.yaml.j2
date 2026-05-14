@@ -1,0 +1,113 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app woodpecker-server
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: woodpecker-server
+  interval: 1h
+  values:
+    controllers:
+      woodpecker-server:
+        strategy: Recreate
+        containers:
+          app:
+            image:
+              repository: woodpeckerci/woodpecker-server
+              tag: v3.14.0
+            env:
+              # Database
+              WOODPECKER_DATABASE_DRIVER: postgres
+              WOODPECKER_DATABASE_DATASOURCE:
+                valueFrom:
+                  secretKeyRef:
+                    name: woodpecker-postgres-app
+                    key: uri
+              # Forgejo OAuth Integration
+              WOODPECKER_GITEA: "true"
+              WOODPECKER_GITEA_URL: "https://forgejo.${SECRET_DOMAIN}"
+              WOODPECKER_GITEA_CLIENT:
+                valueFrom:
+                  secretKeyRef:
+                    name: woodpecker-server-secret
+                    key: gitea-client-id
+              WOODPECKER_GITEA_SECRET:
+                valueFrom:
+                  secretKeyRef:
+                    name: woodpecker-server-secret
+                    key: gitea-client-secret
+              # Server Configuration
+              WOODPECKER_HOST: "https://woodpecker.${SECRET_DOMAIN}"
+              WOODPECKER_SERVER_ADDR: ":8000"
+              WOODPECKER_GRPC_ADDR: ":9000"
+              WOODPECKER_ADMIN: "#{ woodpecker_admin_user }#"
+              # Agent Authentication
+              WOODPECKER_AGENT_SECRET:
+                valueFrom:
+                  secretKeyRef:
+                    name: woodpecker-server-secret
+                    key: agent-secret
+            probes:
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /healthz
+                    port: 8000
+                  initialDelaySeconds: 10
+                  periodSeconds: 5
+                  failureThreshold: 30  # 150 seconds total to start
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /healthz
+                    port: 8000
+                  initialDelaySeconds: 30
+                  periodSeconds: 10
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /healthz
+                    port: 8000
+                  initialDelaySeconds: 10
+                  periodSeconds: 5
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities: { drop: ["ALL"] }
+              runAsUser: 1000
+              runAsGroup: 1000
+              runAsNonRoot: true
+            resources:
+              requests:
+                cpu: 20m
+                memory: 256Mi
+              limits:
+                memory: 2Gi
+        pod:
+          securityContext:
+            fsGroup: 1000
+          annotations:
+            secret.reloader.stakater.com/reload: *app
+    persistence:
+      data:
+        type: persistentVolumeClaim
+        storageClass: longhorn
+        size: 2Gi
+        accessMode: ReadWriteOnce
+        globalMounts:
+          - path: /var/lib/woodpecker
+    service:
+      app:
+        controller: woodpecker-server
+        ports:
+          http:
+            port: 8000
+          grpc:
+            port: 9000

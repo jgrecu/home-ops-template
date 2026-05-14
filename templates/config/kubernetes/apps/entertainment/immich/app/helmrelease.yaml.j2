@@ -1,0 +1,97 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: immich
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: immich
+  interval: 1h
+  values:
+    # Override image version to match database backup (v2.7.5)
+    controllers:
+      main:
+        containers:
+          main:
+            image:
+              tag: v2.7.5
+
+    # Server component configuration
+    server:
+      controllers:
+        main:
+          strategy: Recreate
+          containers:
+            main:
+              image:
+                tag: v2.7.5
+              env:
+                # Database — CNPG creates the immich-postgres-app secret automatically
+                DB_HOSTNAME: immich-postgres-rw
+                DB_DATABASE_NAME: immich
+                DB_USERNAME: immich
+                DB_PASSWORD:
+                  valueFrom:
+                    secretKeyRef:
+                      name: immich-postgres-app
+                      key: password
+                # Redis — use Dragonfly in database-system namespace
+                REDIS_HOSTNAME: dragonfly.database-system.svc.cluster.local
+                REDIS_PORT: "6379"
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 1Gi
+                limits:
+                  memory: 4Gi
+      route:
+        enabled: false
+
+    immich:
+      # Enable Prometheus metrics collection
+      metrics:
+        enabled: true
+      persistence:
+        # Photo library on NFS — originals, thumbnails, encoded videos.
+        # All stored on your NAS: large files belong there, not on cluster SSDs.
+        # Chart 0.11.1+ requires existingClaim instead of creating PVC
+        library:
+          existingClaim: immich-library
+
+    # Machine learning model cache on Longhorn — models are ~2-4GB and
+    # downloaded once. Fast local SSD means quicker startup after pod restarts.
+    machine-learning:
+      controllers:
+        main:
+          containers:
+            main:
+              image:
+                tag: v2.7.5
+              probes:
+                startup:
+                  enabled: true
+                  spec:
+                    initialDelaySeconds: 30
+                    periodSeconds: 10
+                    timeoutSeconds: 5
+                    failureThreshold: 30
+                liveness:
+                  enabled: true
+                  spec:
+                    periodSeconds: 30
+                    timeoutSeconds: 10
+                    failureThreshold: 3
+              resources:
+                requests:
+                  cpu: 200m
+                  memory: 2Gi
+                limits:
+                  memory: 8Gi
+      persistence:
+        cache:
+          enabled: true
+          storageClass: longhorn
+          size: 10Gi
+      route:
+        enabled: false

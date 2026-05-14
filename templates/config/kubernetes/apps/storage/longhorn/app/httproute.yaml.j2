@@ -1,0 +1,23 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: longhorn
+  annotations:
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "Longhorn"
+    gethomepage.dev/group: "Storage"
+    gethomepage.dev/description: "Persistent volume management"
+    gethomepage.dev/icon: "longhorn.png"
+    gethomepage.dev/href: "https://longhorn.${SECRET_DOMAIN}"
+spec:
+  hostnames:
+    - longhorn.${SECRET_DOMAIN}
+  parentRefs:
+    - name: envoy-internal
+      namespace: network
+      sectionName: https
+  rules:
+    - backendRefs:
+        - name: longhorn-frontend
+          port: 80

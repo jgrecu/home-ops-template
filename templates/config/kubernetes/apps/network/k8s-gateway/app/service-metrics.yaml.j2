@@ -1,0 +1,21 @@
+---
+# Metrics service for k8s-gateway
+# Separate service to expose metrics port for Prometheus scraping
+# The main service is LoadBalancer type for DNS, this is ClusterIP for metrics only
+apiVersion: v1
+kind: Service
+metadata:
+  name: k8s-gateway-metrics
+  namespace: network
+  labels:
+    app.kubernetes.io/name: k8s-gateway
+    app.kubernetes.io/service: k8s-gateway-metrics
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: k8s-gateway
+  ports:
+    - name: metrics
+      port: 9153
+      targetPort: metrics
+      protocol: TCP

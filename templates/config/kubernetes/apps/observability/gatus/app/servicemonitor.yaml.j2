@@ -1,0 +1,25 @@
+---
+# ServiceMonitor for Gatus health check monitoring metrics
+# Scrapes metrics from Gatus status page including:
+# - gatus_results_total: Total number of results per endpoint
+# - gatus_results_code_total: Results by HTTP status code
+# - gatus_results_connected_total: Connection status results
+# - gatus_endpoint_uptime: Endpoint uptime percentage
+# - gatus_endpoint_response_time: Endpoint response times
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: gatus
+  namespace: observability
+  labels:
+    app.kubernetes.io/name: gatus
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: gatus
+      app.kubernetes.io/instance: gatus
+      app.kubernetes.io/service: gatus
+  endpoints:
+    - port: http
+      interval: 30s
+      path: /metrics
